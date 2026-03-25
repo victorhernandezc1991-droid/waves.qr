@@ -13,17 +13,23 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background-color: var(--bg-color);
+  background-color: #050505; /* Fondo casi negro para escritorio */
   color: var(--text-main);
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  display: flex;
+  justify-content: center; /* Centra todo horizontalmente */
 }
 
 .menu-container {
-  max-width: 600px;
+  width: 100%;
+  max-width: 450px; /* Tamaño ideal de un celular moderno */
+  min-height: 100vh;
   margin: 0 auto;
   padding: 15px;
-  padding-bottom: 100px;
+  padding-bottom: 120px;
+  background-color: var(--bg-color); /* El gris oscuro original */
+  box-shadow: 0px 0px 30px rgba(0,0,0,0.8); /* Sombra para despegarlo del fondo */
 }
 
 /* --- CABECERA --- */
@@ -73,9 +79,23 @@ body {
 
 /* --- CONFIGURACIÓN PARA PC (Escritorio) --- */
 @media (min-width: 769px) {
+  body {
+    padding: 40px 0; /* Lo separa del techo del monitor */
+    background-image: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #050505 100%); /* Fondo sutil */
+  }
+
+  .menu-container {
+    min-height: 85vh;
+    border-radius: 40px; /* Bordes redondeados del "celular" */
+    border: 8px solid #222; /* Simula el marco del dispositivo */
+    position: relative; 
+  }
+
   .hamburguesa-movil, .sidebar-movil, .overlay {
     display: none !important;
   }
+  
+  /* ... (dejá la parte de .categorias-escritorio igual que la tenías) ... */
   .categorias-escritorio {
     display: flex;
     justify-content: center;
@@ -199,12 +219,39 @@ body {
 
 .btn-add-cart { width: 90%; margin: 5px auto; padding: 10px; background: var(--accent-yellow); border: none; border-radius: 8px; font-weight: 800; }
 
-/* --- CARRITO --- */
-.pedido-container { background: white; padding: 20px; margin-top: 20px; border-radius: 16px; color: black; }
-.btn-enviar-cocina { width: 100%; padding: 16px; background: var(--accent-yellow); border: none; border-radius: 30px; font-weight: 800; margin-top: 15px; }
+/* --- CARRITO PREMIUM OSCURO --- */
+.pedido-container { 
+  background: #1a1a1a; 
+  padding: 20px; 
+  margin-top: 30px; 
+  border-radius: 16px; 
+  color: white; /* Ahora es blanco sobre gris oscuro */
+  border: 1px solid #333;
+  box-shadow: 0 -4px 15px rgba(0,0,0,0.4);
+}
 
-/* --- STATUS BANNER --- */
-.status-banner { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 30px; font-weight: bold; z-index: 2000; }
-.status-banner.pendiente { background: #555; color: white; }
-.status-banner.preparando { background: var(--accent-yellow); color: black; }
-.status-banner.finalizado { background: #25b14a; color: white; }
+.carrito-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  background: #252525;
+  padding: 12px;
+  border-radius: 10px;
+  border-left: 4px solid var(--accent-yellow); /* Detalle de color */
+}
+
+/* --- STATUS BANNER LIMITADO --- */
+.status-banner { 
+  position: fixed; 
+  bottom: 20px; 
+  left: 50%; 
+  transform: translateX(-50%); 
+  padding: 14px 25px; 
+  border-radius: 30px; 
+  font-weight: bold; 
+  z-index: 2000; 
+  width: 90%;
+  max-width: 400px; /* Evita que ocupe todo el monitor en PC */
+  text-align: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
