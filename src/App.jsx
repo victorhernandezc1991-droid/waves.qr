@@ -5,8 +5,10 @@ import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import {
   collection, onSnapshot, addDoc, deleteDoc,
   doc, updateDoc, serverTimestamp, query, where,
+  runTransaction,
 } from "firebase/firestore";
 import ImageUpload from "./components/ImageUpload.jsx";
+import JsBarcode from "jsbarcode";
 import "./App.css";
 
 const CocinaAdmin  = lazy(() => import("./components/CocinaAdmin.jsx"));
@@ -121,6 +123,7 @@ function ProductoItem({ p, slug, eliminarProducto, agregarAlCarrito, esAdmin, ad
           {agotado   && <span className="badge-agotado">AGOTADO</span>}
           {stockBajo && !agotado && <span className="badge-stock-bajo">ÚLTIMAS UNID.</span>}
         </h2>
+        {p.descripcion && <p className="product-description">{p.descripcion}</p>}
         <p className="product-price-large">$ {p.precio?.toLocaleString("es-AR")}</p>
       </div>
       {!esAdmin && !agotado && (
@@ -219,6 +222,9 @@ function RestauranteApp() {
 
   const [productos,   setProductos]   = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(true);
+  const [errorConexion, setErrorConexion] = useState(false);
+  const [mesaInvalidaEnURL, setMesaInvalidaEnURL] = useState(false);
+  const [deliveryInfo, setDeliveryInfo] = useState({ nombre: "", direccion: "", telefono: "" });
   const [carrito,     setCarrito]     = useState(() => { try { return JSON.parse(localStorage.getItem(`carrito-${slug}`) || "[]"); } catch { return []; } });
   const [notas,       setNotas]       = useState("");
   const [verHistorial, setVerHistorial] = useState(false);
@@ -245,9 +251,11 @@ function RestauranteApp() {
   });
 
   const ultimaOrden = useRef(0);
+  const barcodeRef  = useRef(null);
   const { toasts, addToast } = useToast();
 
-  const esAdmin = !!(user && comercio && user.uid === comercio.ownerUid);
+  const esAdmin     = !!(user && comercio && user.uid === comercio.ownerUid);
+  const esDelivery  = configLocal.estado === "CERRADO";
 
   // ── Efectos
   useEffect(() => { const u = onAuthStateChanged(auth, setUser); return () => u(); }, []);
@@ -265,10 +273,19 @@ function RestauranteApp() {
 
   useEffect(() => {
     if (!slug) return;
-    const unsub = onSnapshot(collection(db, "comercios", slug, "productos"), snap => {
-      setProductos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoadingProductos(false);
-    }, () => { setLoadingProductos(false); });
+    const unsub = onSnapshot(
+      collection(db, "comercios", slug, "productos"),
+      snap => {
+        setProductos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoadingProductos(false);
+        setErrorConexion(false);
+      },
+      err => {
+        console.error("[productos]", err);
+        setLoadingProductos(false);
+        setErrorConexion(true);
+      }
+    );
     return () => unsub();
   }, [slug]);
 
@@ -303,9 +320,31 @@ function RestauranteApp() {
     return () => unsub();
   }, [user?.uid, slug]);
 
+  // Render del barcode cuando se muestra la confirmación
   useEffect(() => {
-    const mesa = new URLSearchParams(window.location.search).get("mesa");
-    if (mesa && validarMesa(mesa)) setMesa(mesa);
+    if (!mostrarConfirmacion || !datosConfirmacion?.numeroOrden || !barcodeRef.current) return;
+    try {
+      JsBarcode(barcodeRef.current, String(datosConfirmacion.numeroOrden), {
+        format: "CODE128",
+        lineColor: "#000",
+        background: "#fff",
+        width: 2,
+        height: 50,
+        displayValue: false,
+        margin: 0,
+      });
+    } catch (err) { console.error("[Barcode]", err); }
+  }, [mostrarConfirmacion, datosConfirmacion]);
+
+  useEffect(() => {
+    const mesaParam = new URLSearchParams(window.location.search).get("mesa");
+    if (!mesaParam) return;
+    if (validarMesa(mesaParam)) {
+      setMesa(mesaParam);
+      setMesaInvalidaEnURL(false);
+    } else {
+      setMesaInvalidaEnURL(true);
+    }
   }, []);
 
   // ── Auth
@@ -314,10 +353,26 @@ function RestauranteApp() {
 
   // ── Carrito
   const agregarAlCarrito = (p, cant) => {
+    if (p.disponible === false) return addToast("Este producto está agotado.", "warning");
+    if (p.stock != null && p.stock <= 0) return addToast("Sin stock disponible.", "warning");
     setCarrito(prev => {
       const idx = prev.findIndex(i => i.id === p.id);
-      if (idx >= 0) { const u = [...prev]; const nc = u[idx].cantidad + cant; u[idx] = { ...u[idx], cantidad: nc, total: nc * p.precio }; return u; }
-      return [...prev, { ...p, cantidad: cant, total: p.precio * cant }];
+      if (idx >= 0) {
+        const enCarrito = prev[idx].cantidad;
+        if (p.stock != null && enCarrito + cant > p.stock) {
+          addToast(`Solo quedan ${p.stock} unidades de ${p.nombre}.`, "warning");
+          return prev;
+        }
+        const u = [...prev];
+        const nc = enCarrito + cant;
+        u[idx] = { ...u[idx], cantidad: nc, total: nc * p.precio };
+        return u;
+      }
+      if (p.stock != null && cant > p.stock) {
+        addToast(`Solo quedan ${p.stock} unidades de ${p.nombre}.`, "warning");
+        return prev;
+      }
+      return [...prev, { ...p, cartId: `${p.id}-${Date.now()}`, cantidad: cant, total: p.precio * cant }];
     });
   };
 
@@ -335,7 +390,7 @@ function RestauranteApp() {
 
   const agregarProducto = async e => {
     e.preventDefault();
-    const { nombre, precio, foto, categoria } = e.target.elements;
+    const { nombre, precio, foto, categoria, descripcion } = e.target.elements;
     const nc = sanitize(nombre.value);
     if (!nc) return addToast("Nombre vacío.", "warning");
     if (!validarPrecio(precio.value)) return addToast("Precio inválido.", "warning");
@@ -343,6 +398,7 @@ function RestauranteApp() {
     try {
       await addDoc(collection(db, "comercios", slug, "productos"), {
         nombre: nc, precio: parseFloat(precio.value),
+        descripcion: sanitize(descripcion?.value || "").slice(0, 200),
         foto: esURLSegura(fotoFinal) ? fotoFinal : "",
         categoria: categoria.value, disponible: true,
         stock: 50, stockMinimo: 5, creadoEn: serverTimestamp(),
@@ -355,32 +411,101 @@ function RestauranteApp() {
   };
 
   // ── Enviar pedido
+  // Usa una transacción Firestore que:
+  //   1. Lee/incrementa el contador secuencial del día (config/contadores)
+  //   2. Verifica stock de cada item del carrito
+  //   3. Crea el documento del pedido
+  //   4. Decrementa el stock de los productos
+  // Todo atómico — si falla cualquier paso, no se persiste nada.
   const enviarPedido = async () => {
-    if (carrito.length === 0)    return addToast("Carrito vacío.", "warning");
-    if (!mesa)                   return addToast("Ingresá mesa.", "warning");
-    if (!validarMesa(mesa))      return addToast("Mesa inválida (1–200).", "warning");
-    if (!metodoPago)             return addToast("Seleccioná método de pago.", "warning");
+    if (carrito.length === 0) return addToast("Carrito vacío.", "warning");
+    if (esDelivery) {
+      if (!deliveryInfo.nombre.trim())    return addToast("Ingresá tu nombre.", "warning");
+      if (!deliveryInfo.direccion.trim()) return addToast("Ingresá tu dirección.", "warning");
+      if (!deliveryInfo.telefono.trim())  return addToast("Ingresá tu teléfono.", "warning");
+    } else {
+      if (!mesa)              return addToast("Ingresá mesa.", "warning");
+      if (!validarMesa(mesa)) return addToast("Mesa inválida (1–200).", "warning");
+    }
+    if (!metodoPago)           return addToast("Seleccioná método de pago.", "warning");
     if (Date.now() - ultimaOrden.current < COOLDOWN_MS) return addToast("Esperá unos segundos.", "warning");
     setEnviando(true);
-    const nOrden = numOrden();
     try {
-      const sub      = carrito.reduce((a, i) => a + i.total, 0);
-      const descuento = user && metricasUsuario.ordersCount === 0 && !esAdmin ? 0.15 : 0;
-      const total    = sub * (1 - descuento);
-      const docRef   = await addDoc(collection(db, "comercios", slug, "pedidos"), {
-        mesa: parseInt(mesa, 10),
-        items: carrito.map(({ id, nombre, cantidad, total }) => ({ id, nombre, cantidad, total })),
-        notas: sanitize(notas).slice(0, MAX_NOTAS),
-        total, subtotal: sub, descuentoAplicado: descuento * 100,
-        estado: "pendiente", hora: new Date().toLocaleTimeString("es-AR"),
-        metodoPago, numeroOrden: nOrden, creadoEn: serverTimestamp(),
-        email: user?.email || null, uid: user?.uid || null,
+      const sub        = carrito.reduce((a, i) => a + i.total, 0);
+      const descuento  = user && metricasUsuario.ordersCount === 0 && !esAdmin ? 0.15 : 0;
+      const total      = sub * (1 - descuento);
+      const counterRef = doc(db, "comercios", slug, "config", "contadores");
+      const fechaHoy   = new Date().toLocaleDateString("es-AR");
+      const pedidoRef  = doc(collection(db, "comercios", slug, "pedidos"));
+
+      const { numeroFormateado } = await runTransaction(db, async tx => {
+        // 1. Contador secuencial diario
+        const counterSnap = await tx.get(counterRef);
+        const counterData = counterSnap.exists() ? counterSnap.data() : {};
+        const numero = counterData.fecha === fechaHoy ? (counterData.ultimaOrden || 0) + 1 : 1;
+        const numeroFormateado = `W-${String(numero).padStart(4, "0")}`;
+
+        // 2. Verificar y leer stock de cada producto
+        const productSnaps = await Promise.all(
+          carrito.map(item => tx.get(doc(db, "comercios", slug, "productos", item.id)))
+        );
+        for (let i = 0; i < carrito.length; i++) {
+          const snap = productSnaps[i];
+          if (!snap.exists()) throw new Error(`Producto "${carrito[i].nombre}" ya no existe.`);
+          const data = snap.data();
+          if (data.disponible === false) throw new Error(`"${carrito[i].nombre}" no está disponible.`);
+          if (data.stock != null && data.stock < carrito[i].cantidad) {
+            throw new Error(`Sin stock suficiente: ${carrito[i].nombre} (quedan ${data.stock}).`);
+          }
+        }
+
+        // 3. Crear documento del pedido
+        const pedidoData = {
+          tipo: esDelivery ? "delivery" : "mesa",
+          items: carrito.map(({ id, nombre, cantidad, total, categoria }) => ({ id, nombre, cantidad, total, categoria: categoria || null })),
+          notas: sanitize(notas).slice(0, MAX_NOTAS),
+          total, subtotal: sub, descuentoAplicado: descuento * 100,
+          estado: "pendiente", hora: new Date().toLocaleTimeString("es-AR"),
+          metodoPago, numeroOrden: numeroFormateado, creadoEn: serverTimestamp(),
+          email: user?.email || null, uid: user?.uid || null,
+        };
+        if (esDelivery) {
+          pedidoData.deliveryInfo = {
+            nombre: sanitize(deliveryInfo.nombre).slice(0, 80),
+            direccion: sanitize(deliveryInfo.direccion).slice(0, 160),
+            telefono: sanitize(deliveryInfo.telefono).slice(0, 30),
+          };
+        } else {
+          pedidoData.mesa = parseInt(mesa, 10);
+        }
+        tx.set(pedidoRef, pedidoData);
+
+        // 4. Decrementar stock + actualizar contador
+        for (let i = 0; i < carrito.length; i++) {
+          const data = productSnaps[i].data();
+          if (data.stock != null) {
+            tx.update(productSnaps[i].ref, { stock: data.stock - carrito[i].cantidad });
+          }
+        }
+        tx.set(counterRef, { ultimaOrden: numero, fecha: fechaHoy }, { merge: true });
+
+        return { numeroFormateado };
       });
+
       ultimaOrden.current = Date.now();
-      setUltimoPedidoId(docRef.id); localStorage.setItem("ultimoPedidoId", docRef.id);
-      setDatosConfirmacion({ numeroOrden: nOrden, mesa: parseInt(mesa, 10), items: [...carrito], total, metodoPago });
+      setUltimoPedidoId(pedidoRef.id); localStorage.setItem("ultimoPedidoId", pedidoRef.id);
+      setDatosConfirmacion({
+        numeroOrden: numeroFormateado,
+        mesa: esDelivery ? null : parseInt(mesa, 10),
+        deliveryInfo: esDelivery ? { ...deliveryInfo } : null,
+        tipo: esDelivery ? "delivery" : "mesa",
+        items: [...carrito],
+        total,
+        metodoPago,
+      });
       setMostrarConfirmacion(true);
       setCarrito([]); setNotas(""); setMetodoPago("");
+      setDeliveryInfo({ nombre: "", direccion: "", telefono: "" });
       addToast("🔔 ¡Pedido enviado!", "success");
     } catch (err) {
       console.error("[enviarPedido]", err);
@@ -559,6 +684,7 @@ function RestauranteApp() {
                 <h3 style={{ color: "var(--accent-yellow)", marginBottom: "4px" }}>+ Agregar Producto</h3>
                 <input name="nombre"   placeholder="Nombre"  required maxLength={MAX_NOMBRE} className="input-base" />
                 <input name="precio"   type="number" min="1" max="999999" step="0.01" placeholder="Precio" required className="input-base" />
+                <textarea name="descripcion" placeholder="Descripción (opcional)" maxLength={200} className="input-base" rows={2} />
                 <ImageUpload onUpload={url => setFotoProducto(url)} addToast={addToast} initialUrl={fotoProducto} />
                 <input name="foto" placeholder="O pegá URL de imagen" className="input-base" value={fotoProducto} onChange={e => setFotoProducto(e.target.value)} />
                 <select name="categoria" className="input-base">
@@ -578,17 +704,44 @@ function RestauranteApp() {
             </div>
           )}
 
+          {/* Banners de estado */}
+          {errorConexion && (
+            <div className="banner-conexion" role="status">
+              📡 Sin conexión. Reintentando...
+            </div>
+          )}
+          {esDelivery && (
+            <div className="banner-local-cerrado" role="status">
+              🛵 <strong>Local cerrado al público.</strong> Tomamos pedidos por delivery — completá tus datos abajo.
+            </div>
+          )}
+          {mesaInvalidaEnURL && user && !esAdmin && !esDelivery && (
+            <div className="banner-mesa-invalida" role="status">
+              ⚠️ Mesa no identificada. Escaneá el QR de la mesa o ingresá el número abajo.
+            </div>
+          )}
+
           {/* Promos */}
           {!busqueda && categoriaSel === "todos" && (
             <>
               {!user && (
-                <div className="promo-banner new-user-banner">
+                <div className="promo-banner new-user-banner-fancy">
                   🎁 <strong>¡15% OFF PARA NUEVOS SOCIOS!</strong> Iniciá sesión arriba para aprovechar este regalo.
                 </div>
               )}
               {esNuevoUsuario && (
-                <div className="promo-banner new-user-banner">
-                  🎁 ¡Bienvenido! Tenés <strong>15% OFF</strong> en tu primer pedido.
+                <div className="promo-banner new-user-banner-fancy">
+                  🎁 ¡Bienvenido! Tenés <strong>15% OFF</strong> en tu primer pedido. Disfrutá tu descuento de bienvenida.
+                </div>
+              )}
+              {metricasUsuario.favorite?.includes("burger") && new Date().getDay() !== 4 && (
+                <div className="promo-banner ad-banner">
+                  🍔 ¡Día de Burger! Aprovechá para pedir tu favorita.
+                </div>
+              )}
+              {metricasUsuario.favorite?.includes("pizza") && new Date().getDay() !== 2 && (
+                <div className="promo-banner ad-banner">
+                  🍕 Antojo de Pizza: Sabemos que te encanta, ¡pedila ahora!
                 </div>
               )}
               <FeaturedCarousel productos={productos} menuDiaIds={menuDiaIds} addToast={addToast} agregarAlCarrito={agregarAlCarrito} />
@@ -648,9 +801,17 @@ function RestauranteApp() {
               <>
                 <ul className="carrito-lista">
                   {carrito.map((item, i) => (
-                    <li key={i} className="carrito-item">
+                    <li key={item.cartId || `${item.id}-${i}`} className="carrito-item">
                       <span><strong>{item.cantidad}x</strong> {item.nombre}</span>
-                      <span><strong>${item.total.toLocaleString("es-AR")}</strong><button className="btn-quitar-item" onClick={() => setCarrito(carrito.filter((_, j) => j !== i))}>✕</button></span>
+                      <span>
+                        <strong>${item.total.toLocaleString("es-AR")}</strong>
+                        <button
+                          type="button"
+                          className="btn-quitar-item"
+                          onClick={() => setCarrito(carrito.filter((_, j) => j !== i))}
+                          aria-label={`Quitar ${item.nombre} del pedido`}
+                        >✕</button>
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -671,7 +832,36 @@ function RestauranteApp() {
                   )}
                   <textarea placeholder="Notas para cocina..." value={notas} onChange={e => setNotas(e.target.value)} maxLength={MAX_NOTAS} className="input-notas" />
                   <small className="contador-notas">{notas.length}/{MAX_NOTAS}</small>
-                  <input type="number" placeholder="N° de Mesa" value={mesa} min="1" max="200" onChange={e => setMesa(e.target.value)} className="input-mesa" />
+                  {esDelivery ? (
+                    <div className="delivery-form">
+                      <input
+                        type="text"
+                        placeholder="Tu nombre"
+                        value={deliveryInfo.nombre}
+                        onChange={e => setDeliveryInfo(d => ({ ...d, nombre: e.target.value }))}
+                        maxLength={80}
+                        className="input-base"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Dirección de entrega"
+                        value={deliveryInfo.direccion}
+                        onChange={e => setDeliveryInfo(d => ({ ...d, direccion: e.target.value }))}
+                        maxLength={160}
+                        className="input-base"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Teléfono"
+                        value={deliveryInfo.telefono}
+                        onChange={e => setDeliveryInfo(d => ({ ...d, telefono: e.target.value }))}
+                        maxLength={30}
+                        className="input-base"
+                      />
+                    </div>
+                  ) : (
+                    <input type="number" placeholder="N° de Mesa" value={mesa} min="1" max="200" onChange={e => setMesa(e.target.value)} className="input-mesa" />
+                  )}
                   <div className="pago-selector">
                     <p className="pago-titulo">Método de Pago</p>
                     <div className="pago-opciones">
@@ -702,14 +892,27 @@ function RestauranteApp() {
       {/* Confirmación */}
       {mostrarConfirmacion && datosConfirmacion && (
         <div className="confirmacion-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmacion-title">
-          <div className="confirmacion-card">
+          <div className="confirmacion-card ticket-termico">
             <div className="confirmacion-check" aria-hidden="true">✓</div>
             <h2 id="confirmacion-title">¡Pedido en marcha!</h2>
-            <p className="confirmacion-orden">{datosConfirmacion.numeroOrden}</p>
-            <p className="confirmacion-mesa">Mesa {datosConfirmacion.mesa}</p>
+            <p className="confirmacion-orden">Orden #{datosConfirmacion.numeroOrden}</p>
+            {datosConfirmacion.tipo === "delivery" ? (
+              <div className="confirmacion-delivery">
+                <p>🛵 <strong>Delivery</strong></p>
+                <p>{datosConfirmacion.deliveryInfo?.nombre}</p>
+                <p>{datosConfirmacion.deliveryInfo?.direccion}</p>
+                <p>📞 {datosConfirmacion.deliveryInfo?.telefono}</p>
+              </div>
+            ) : (
+              <p className="confirmacion-mesa">Mesa {datosConfirmacion.mesa}</p>
+            )}
             <ul className="confirmacion-items">{datosConfirmacion.items.map((it, i) => <li key={i}>{it.cantidad}x {it.nombre}</li>)}</ul>
             <div className="confirmacion-total">Total: ${datosConfirmacion.total.toLocaleString("es-AR")}</div>
             <div className="confirmacion-metodo">💳 {datosConfirmacion.metodoPago}</div>
+            <div className="ticket-barcode-wrap">
+              <svg ref={barcodeRef} aria-label={`Código de barras del pedido ${datosConfirmacion.numeroOrden}`} />
+              <p className="ticket-orden-num">{datosConfirmacion.numeroOrden}</p>
+            </div>
             <button className="btn-confirmacion-cerrar" onClick={() => setMostrarConfirmacion(false)}>ACEPTAR</button>
           </div>
         </div>

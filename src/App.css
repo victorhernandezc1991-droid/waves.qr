@@ -425,6 +425,87 @@ body {
 .upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent-blue),#64b5f6);animation:progressPulse 1s ease-in-out infinite;border-radius:2px}
 @keyframes progressPulse{0%,100%{width:30%}50%{width:80%}}
 
+/* Descripción de producto en la tarjeta */
+.product-description{font-size:.78rem;color:var(--text-muted);line-height:1.35;margin:2px 0 4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Banner promo "fancy" — gradient azul con backdrop-filter (matches producción) */
+.promo-banner.new-user-banner-fancy{
+  background:linear-gradient(135deg, rgba(43,127,255,.92), rgba(26,106,224,.92));
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  box-shadow:0 8px 24px rgba(43,127,255,.3);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.1);
+}
+
+/* Banner ad genérico (favoritos: burger / pizza) */
+.promo-banner.ad-banner{
+  background:linear-gradient(135deg, var(--accent-yellow), #c5d600);
+  color:#000;
+  font-weight:700;
+}
+
+/* Banner de "sin conexión" */
+.banner-conexion{
+  background:rgba(255,149,0,.12);
+  border:1px solid rgba(255,149,0,.3);
+  color:#ffb84d;
+  padding:10px 14px;
+  margin:8px 12px 12px;
+  border-radius:12px;
+  font-size:.88rem;
+  text-align:center;
+}
+
+/* Ticket térmico — fondo blanco para imprimibilidad y contraste con el barcode */
+.ticket-termico{background:#fff !important;color:#1a1a1a !important}
+.ticket-termico h2{color:#1a1a1a !important;font-size:1.2rem !important;margin-bottom:15px !important}
+.ticket-termico .confirmacion-orden,
+.ticket-termico .confirmacion-mesa,
+.ticket-termico .confirmacion-total,
+.ticket-termico .confirmacion-metodo{color:#1a1a1a}
+.ticket-termico .confirmacion-items li{color:#333}
+.ticket-barcode-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;margin:14px 0 8px;padding:10px 0;border-top:1px dashed #999;border-bottom:1px dashed #999}
+.ticket-barcode-wrap svg{max-width:90%;height:auto}
+.ticket-orden-num{font-family:'Courier New', monospace;font-size:.85rem;letter-spacing:.1em;color:#1a1a1a;margin:0}
+
+/* Banner de "local cerrado" — modo delivery */
+.banner-local-cerrado{
+  background:linear-gradient(135deg, rgba(255,149,0,.15), rgba(255,90,40,.15));
+  border:1px solid rgba(255,149,0,.4);
+  color:#ffb84d;
+  padding:14px;
+  margin:8px 12px 12px;
+  border-radius:14px;
+  font-size:.9rem;
+  text-align:center;
+  line-height:1.45;
+}
+
+/* Form de delivery dentro del carrito */
+.delivery-form{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+
+/* Confirmación: bloque de datos delivery */
+.confirmacion-delivery{margin:8px 0;line-height:1.5;font-size:.92rem}
+.confirmacion-delivery p{margin:2px 0}
+
+/* Comanda de delivery (cocina): borde naranja para distinguir */
+.comanda-delivery{border:2px solid rgba(255,149,0,.5)}
+.comanda-delivery-info{background:rgba(255,149,0,.08);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.84rem;line-height:1.5}
+.comanda-delivery-info p{margin:1px 0;color:var(--text-main)}
+
+/* Banner de "mesa no identificada" */
+.banner-mesa-invalida{
+  background:rgba(255,59,59,.1);
+  border:1px solid rgba(255,59,59,.3);
+  color:var(--accent-red);
+  padding:10px 14px;
+  margin:8px 12px 12px;
+  border-radius:12px;
+  font-size:.88rem;
+  text-align:center;
+}
+
 /* ══════════════════════════════════════════════════════════════
    BOTONES SUPERIORES — theme toggle + cocina quick
    ══════════════════════════════════════════════════════════════ */

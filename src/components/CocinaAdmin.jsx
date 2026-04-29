@@ -123,9 +123,19 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
       <div className="cocina-grid">
         {activos.length === 0 && <p style={{ color: "var(--text-dim)", textAlign: "center", gridColumn: "1/-1", padding: "40px 0" }}>Sin pedidos activos. 🎉</p>}
         {activos.map(p => (
-          <div key={p.id} className={`comanda-card ${p.estado}`}>
-            <div className="comanda-header"><h2>MESA {p.mesa}</h2><span className={`badge-${p.estado}`}>{p.estado.toUpperCase()}</span></div>
+          <div key={p.id} className={`comanda-card ${p.estado} ${p.tipo === "delivery" ? "comanda-delivery" : ""}`}>
+            <div className="comanda-header">
+              <h2>{p.tipo === "delivery" ? "🛵 DELIVERY" : `MESA ${p.mesa}`}</h2>
+              <span className={`badge-${p.estado}`}>{p.estado.toUpperCase()}</span>
+            </div>
             {p.numeroOrden && <div className="comanda-orden">Orden: {p.numeroOrden}</div>}
+            {p.tipo === "delivery" && p.deliveryInfo && (
+              <div className="comanda-delivery-info">
+                <p>👤 {p.deliveryInfo.nombre}</p>
+                <p>📍 {p.deliveryInfo.direccion}</p>
+                <p>📞 {p.deliveryInfo.telefono}</p>
+              </div>
+            )}
             {p.metodoPago  && <div className="comanda-metodo-pago">💳 {p.metodoPago}</div>}
             {p.notas       && <div className="nota-cocina">⚠️ {p.notas}</div>}
             <ul className="comanda-lista">{p.items?.map((it, i) => <li key={i}>• {it.cantidad}x {it.nombre}</li>)}</ul>
