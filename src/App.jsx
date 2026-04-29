@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { db, auth, provider } from "./firebaseConfig";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
@@ -7,15 +7,16 @@ import {
   doc, updateDoc, serverTimestamp, query, where,
   runTransaction,
 } from "firebase/firestore";
-import ImageUpload from "./components/ImageUpload.jsx";
 import JsBarcode from "jsbarcode";
 import "./App.css";
 
+// Componentes admin (lazy — solo se cargan cuando el usuario admin los abre)
 const CocinaAdmin  = lazy(() => import("./components/CocinaAdmin.jsx"));
 const CierreCaja   = lazy(() => import("./components/CierreCaja.jsx"));
 const ConfigLocal  = lazy(() => import("./components/ConfigLocal.jsx"));
 const StockManager = lazy(() => import("./components/StockManager.jsx"));
 const MenuDelDia   = lazy(() => import("./components/MenuDelDia.jsx"));
+const ImageUpload  = lazy(() => import("./components/ImageUpload.jsx"));
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
 const CATEGORIAS = ["todos","hamburguesas","pizzas","pastas","milanesas","asado","cafe","bebidas","postres"];
@@ -89,7 +90,7 @@ function useComercio(slug) {
 // ImageUpload se importa desde ./components/ImageUpload.jsx
 
 // ─── PRODUCTO ─────────────────────────────────────────────────────────────────
-function ProductoItem({ p, slug, eliminarProducto, agregarAlCarrito, esAdmin, addToast }) {
+const ProductoItem = memo(function ProductoItem({ p, slug, eliminarProducto, agregarAlCarrito, esAdmin, addToast }) {
   const [imgError,  setImgError]  = useState(false);
   const [cantidad,  setCantidad]  = useState(1);
 
@@ -144,7 +145,17 @@ function ProductoItem({ p, slug, eliminarProducto, agregarAlCarrito, esAdmin, ad
       )}
     </div>
   );
-}
+}, (prev, next) =>
+  prev.esAdmin === next.esAdmin &&
+  prev.p.id === next.p.id &&
+  prev.p.disponible === next.p.disponible &&
+  prev.p.stock === next.p.stock &&
+  prev.p.stockMinimo === next.p.stockMinimo &&
+  prev.p.foto === next.p.foto &&
+  prev.p.precio === next.p.precio &&
+  prev.p.nombre === next.p.nombre &&
+  prev.p.descripcion === next.p.descripcion
+);
 
 // ─── CARRUSEL ─────────────────────────────────────────────────────────────────
 function FeaturedCarousel({ productos, menuDiaIds, addToast, agregarAlCarrito }) {
@@ -352,7 +363,7 @@ function RestauranteApp() {
   const logout = async () => { try { await signOut(auth); addToast("Sesión cerrada.", "info"); } catch { addToast("Error.", "error"); } };
 
   // ── Carrito
-  const agregarAlCarrito = (p, cant) => {
+  const agregarAlCarrito = useCallback((p, cant) => {
     if (p.disponible === false) return addToast("Este producto está agotado.", "warning");
     if (p.stock != null && p.stock <= 0) return addToast("Sin stock disponible.", "warning");
     setCarrito(prev => {
@@ -374,10 +385,10 @@ function RestauranteApp() {
       }
       return [...prev, { ...p, cartId: `${p.id}-${Date.now()}`, cantidad: cant, total: p.precio * cant }];
     });
-  };
+  }, [addToast]);
 
   // ── CRUD Productos
-  const eliminarProducto = async id => {
+  const eliminarProducto = useCallback(async id => {
     if (!window.confirm("¿Eliminar permanentemente?")) return;
     try {
       await deleteDoc(doc(db, "comercios", slug, "productos", id));
@@ -386,7 +397,7 @@ function RestauranteApp() {
       console.error("[eliminarProducto]", err);
       addToast(err?.message || "No se pudo eliminar.", "error");
     }
-  };
+  }, [slug, addToast]);
 
   const agregarProducto = async e => {
     e.preventDefault();
@@ -530,17 +541,20 @@ function RestauranteApp() {
 
   const cambiarVista = v => { setVistaActiva(v); setMenuAbierto(false); };
 
-  // ── Calculados
-  const productosFiltrados = productos.filter(p => {
-    const nom = p.nombre?.toLowerCase().includes(busqueda.toLowerCase());
-    const cat = categoriaSel === "todos" || p.categoria?.toLowerCase() === categoriaSel;
-    return nom && cat;
-  });
-  const esNuevoUsuario    = !!(user && metricasUsuario.ordersCount === 0 && !esAdmin);
-  const descuentoVal      = esNuevoUsuario ? 0.15 : 0;
-  const subtotalCarrito   = carrito.reduce((a, i) => a + i.total, 0);
-  const montoDescuento    = subtotalCarrito * descuentoVal;
-  const totalCarrito      = subtotalCarrito - montoDescuento;
+  // ── Calculados (memoizados para evitar recálculos en cada re-render)
+  const productosFiltrados = useMemo(() => {
+    const q = busqueda.toLowerCase();
+    return productos.filter(p => {
+      const nom = p.nombre?.toLowerCase().includes(q);
+      const cat = categoriaSel === "todos" || p.categoria?.toLowerCase() === categoriaSel;
+      return nom && cat;
+    });
+  }, [productos, busqueda, categoriaSel]);
+  const esNuevoUsuario  = !!(user && metricasUsuario.ordersCount === 0 && !esAdmin);
+  const descuentoVal    = esNuevoUsuario ? 0.15 : 0;
+  const subtotalCarrito = useMemo(() => carrito.reduce((a, i) => a + i.total, 0), [carrito]);
+  const montoDescuento  = subtotalCarrito * descuentoVal;
+  const totalCarrito    = subtotalCarrito - montoDescuento;
 
   // ── Loading
   if (loadingComercio) {
@@ -685,7 +699,9 @@ function RestauranteApp() {
                 <input name="nombre"   placeholder="Nombre"  required maxLength={MAX_NOMBRE} className="input-base" />
                 <input name="precio"   type="number" min="1" max="999999" step="0.01" placeholder="Precio" required className="input-base" />
                 <textarea name="descripcion" placeholder="Descripción (opcional)" maxLength={200} className="input-base" rows={2} />
-                <ImageUpload onUpload={url => setFotoProducto(url)} addToast={addToast} initialUrl={fotoProducto} />
+                <Suspense fallback={<div style={{ padding: 12, textAlign: "center", color: "var(--text-dim)" }}>Cargando uploader…</div>}>
+                  <ImageUpload onUpload={url => setFotoProducto(url)} addToast={addToast} initialUrl={fotoProducto} />
+                </Suspense>
                 <input name="foto" placeholder="O pegá URL de imagen" className="input-base" value={fotoProducto} onChange={e => setFotoProducto(e.target.value)} />
                 <select name="categoria" className="input-base">
                   {CATEGORIAS.filter(c => c !== "todos").map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
