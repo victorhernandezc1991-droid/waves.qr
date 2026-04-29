@@ -448,8 +448,12 @@ function RestauranteApp() {
   return (
     <>
       <ToastContainer toasts={toasts} />
-      <button className="btn-theme-toggle" onClick={() => setTema(p => p === "dark" ? "light" : "dark")} title={tema === "dark" ? "Modo claro" : "Modo oscuro"}>
-        {tema === "dark" ? "☀️" : "🌙"}
+      <button
+        className="btn-theme-toggle"
+        onClick={() => setTema(p => p === "light" ? "dark" : p === "dark" ? "seleccion" : "light")}
+        title={tema === "light" ? "Modo oscuro" : tema === "dark" ? "Modo selección" : "Modo claro"}
+      >
+        {tema === "light" ? "🌙" : tema === "dark" ? "⭐" : "☀️"}
       </button>
 
       <Suspense fallback={null}>
@@ -467,9 +471,18 @@ function RestauranteApp() {
           {/* Header */}
           <header className="header">
             <div onClick={loginLoading ? undefined : user ? logout : login} className="header-icon" style={{ cursor: "pointer", opacity: loginLoading ? 0.5 : 1 }}>
-              <img src={user ? user.photoURL : logoUrl} alt="Logo" style={{ borderRadius: "50%" }} />
+              <img
+                src={user ? user.photoURL : (tema === "seleccion" ? "/afa-logo.png" : logoUrl)}
+                alt="Logo"
+                style={{ borderRadius: user && tema !== "seleccion" ? "50%" : (tema === "seleccion" ? "0" : "50%") }}
+              />
             </div>
-            <h1 className="header-title">{nombre}</h1>
+            <h1 className="header-title" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span className={tema === "seleccion" ? "waves-seleccion-text" : ""}>{nombre}</span>
+              {tema === "seleccion" && (
+                <span style={{ fontSize: "0.5em", marginLeft: "6px", letterSpacing: "1px", color: "var(--accent-yellow)", textShadow: "var(--shadow-glow-yellow)" }}>⭐⭐⭐</span>
+              )}
+            </h1>
             {user && <p className="header-username">{user.displayName}</p>}
           </header>
 
@@ -502,15 +515,21 @@ function RestauranteApp() {
               </div>
             )}
             <div className="drawer-footer">
-              <button className="drawer-item" onClick={() => { setTema(p => p === "dark" ? "light" : "dark"); setMenuAbierto(false); }}>
-                {tema === "dark" ? "☀️ Modo Claro" : "🌙 Modo Oscuro"}
+              <button className="drawer-item" onClick={() => { setTema(p => p === "light" ? "dark" : p === "dark" ? "seleccion" : "light"); setMenuAbierto(false); }}>
+                {tema === "light" ? "🌙 Modo Oscuro" : tema === "dark" ? "⭐ Modo Selección" : "☀️ Modo Claro"}
               </button>
             </div>
           </nav>
 
           {/* Search */}
           <div style={{ padding: "0 10px", marginBottom: "20px" }}>
-            <input type="text" placeholder="🔍 Buscar plato, bebida, postre..." className="input-base search-bar" maxLength={80} onChange={e => setBusqueda(e.target.value)} />
+            <input
+              type="text"
+              placeholder={tema === "seleccion" ? "🔍 ¿QUÉ DESEAN LOS CAMPEONES HOY?" : "🔍 Buscar plato, bebida, postre..."}
+              className="input-base search-bar"
+              maxLength={80}
+              onChange={e => setBusqueda(e.target.value)}
+            />
           </div>
 
           {/* Admin Form */}

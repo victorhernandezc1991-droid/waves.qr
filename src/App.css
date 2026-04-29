@@ -426,6 +426,30 @@ body {
 @keyframes progressPulse{0%,100%{width:30%}50%{width:80%}}
 
 /* ══════════════════════════════════════════════════════════════
+   TEMA SELECCIÓN — Argentina 3 estrellas (AFA)
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="seleccion"]{
+  --bg-body:#0a0e1a; --bg-color:#0d1424; --card-bg:#111827;
+  --bg-surface:#161f33; --bg-input:#1a2540; --bg-elevated:#1e2d4a; --bg-deep:#080c16;
+  --accent-yellow:#c9a84c; --accent-yellow-glow:rgba(201,168,76,.25);
+  --accent-blue:#4a90d9; --accent-blue-glow:rgba(74,144,217,.2);
+  --accent-red:#e05c5c; --accent-green:#3aab6b;
+  --text-main:#e8e8f0; --text-muted:#7a8499; --text-dim:#4a5568;
+  --border-subtle:rgba(201,168,76,.06); --border-color:rgba(201,168,76,.12); --border-light:rgba(201,168,76,.2);
+  --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+  --shadow-md:0 8px 24px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 48px rgba(0,0,0,.6);
+  --shadow-glow-yellow:0 0 20px rgba(201,168,76,.3);
+  --shadow-glow-blue:0 0 20px rgba(74,144,217,.2);
+}
+[data-theme="seleccion"] body:before{background:#1a3a6e;opacity:.12}
+[data-theme="seleccion"] body:after{background:#c9a84c;opacity:.06}
+[data-theme="seleccion"] .categoria-badge{background:#0d1424;border-color:#c9a84c40;box-shadow:0 2px 16px #c9a84c1a}
+[data-theme="seleccion"] .categoria-linea{background:linear-gradient(90deg,transparent,rgba(201,168,76,.2),transparent)}
+[data-theme="seleccion"] .pedido-header h2{background:linear-gradient(135deg,#fcd060,#c9a84c,#fcd060);-webkit-background-clip:text;background-clip:text;color:transparent}
+.waves-seleccion-text{background:linear-gradient(135deg,#fcd060,#c9a84c,#fcd060);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
+
+/* ══════════════════════════════════════════════════════════════
    CATEGORÍAS — sección con título separador
    ══════════════════════════════════════════════════════════════ */
 .categoria-seccion{margin-bottom:2rem}
