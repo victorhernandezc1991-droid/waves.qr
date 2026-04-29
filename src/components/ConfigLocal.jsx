@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { db, storage } from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import ImageUpload from "./ImageUpload.jsx";
 
 const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const METODOS = [
@@ -16,41 +16,6 @@ const DEFAULTS = {
   metodosPago: ["efectivo", "tarjeta", "mercadoPago"],
   notificaciones: true,
 };
-
-function LogoUpload({ onUpload, addToast, initialUrl, storagePath }) {
-  const [preview,    setPreview]    = useState(initialUrl || null);
-  const [uploading,  setUploading]  = useState(false);
-
-  useEffect(() => { setPreview(initialUrl || null); }, [initialUrl]);
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) return addToast("❌ Formato no soportado. Usá JPG, PNG o WebP.", "error");
-    if (file.size > 6 * 1024 * 1024) return addToast("❌ Imagen demasiado pesada. Máximo 6 MB.", "error");
-    setUploading(true);
-    try {
-      const sRef = ref(storage, `${storagePath}/logo_${Date.now()}`);
-      await uploadBytes(sRef, file);
-      const url = await getDownloadURL(sRef);
-      setPreview(url);
-      onUpload(url);
-      addToast("✅ Logo subido.", "success");
-    } catch { addToast("❌ Error al subir imagen.", "error"); }
-    finally { setUploading(false); }
-  };
-
-  return (
-    <div className="image-upload-container">
-      <input type="file" id="logo-upload" accept="image/jpeg,image/png,image/webp" onChange={handleFile} style={{ display: "none" }} />
-      <div className="image-upload-dropzone" onClick={() => document.getElementById("logo-upload").click()}>
-        {preview
-          ? <img src={preview} alt="Logo" className="image-upload-preview" style={{ borderRadius: "50%" }} />
-          : <div className="image-upload-placeholder"><span className="image-upload-icon">🏪</span><span>{uploading ? "Subiendo..." : "Subir logo"}</span></div>}
-      </div>
-    </div>
-  );
-}
 
 export default function ConfigLocal({ slug, addToast, alCerrar }) {
   const [config,    setConfig]    = useState(DEFAULTS);
@@ -120,7 +85,7 @@ export default function ConfigLocal({ slug, addToast, alCerrar }) {
       <div className="config-seccion config-perfil-card">
         <h3>🏪 Perfil del Comercio</h3>
         <div className="config-perfil-logo">
-          <LogoUpload
+          <ImageUpload
             onUpload={url => setPerfil(p => ({ ...p, logoUrl: url }))}
             addToast={addToast}
             initialUrl={perfil.logoUrl}
