@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebaseConfig";
-import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { db, storage } from "../firebaseConfig";
+import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const METODOS = [
-  { id: "efectivo", nombre: "💵 Efectivo" },
-  { id: "tarjeta", nombre: "💳 Tarjeta" },
+  { id: "efectivo",    nombre: "💵 Efectivo" },
+  { id: "tarjeta",     nombre: "💳 Tarjeta" },
   { id: "mercadoPago", nombre: "📱 Mercado Pago" },
 ];
-
 const DEFAULTS = {
   nombre: "Waves", direccion: "", telefono: "", email: "",
   estado: "ABIERTO",
@@ -17,36 +17,97 @@ const DEFAULTS = {
   notificaciones: true,
 };
 
-export default function ConfigLocal({ addToast, alCerrar }) {
-  const [config, setConfig]       = useState(DEFAULTS);
+function LogoUpload({ onUpload, addToast, initialUrl, storagePath }) {
+  const [preview,    setPreview]    = useState(initialUrl || null);
+  const [uploading,  setUploading]  = useState(false);
+
+  useEffect(() => { setPreview(initialUrl || null); }, [initialUrl]);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) return addToast("❌ Formato no soportado. Usá JPG, PNG o WebP.", "error");
+    if (file.size > 6 * 1024 * 1024) return addToast("❌ Imagen demasiado pesada. Máximo 6 MB.", "error");
+    setUploading(true);
+    try {
+      const sRef = ref(storage, `${storagePath}/logo_${Date.now()}`);
+      await uploadBytes(sRef, file);
+      const url = await getDownloadURL(sRef);
+      setPreview(url);
+      onUpload(url);
+      addToast("✅ Logo subido.", "success");
+    } catch { addToast("❌ Error al subir imagen.", "error"); }
+    finally { setUploading(false); }
+  };
+
+  return (
+    <div className="image-upload-container">
+      <input type="file" id="logo-upload" accept="image/jpeg,image/png,image/webp" onChange={handleFile} style={{ display: "none" }} />
+      <div className="image-upload-dropzone" onClick={() => document.getElementById("logo-upload").click()}>
+        {preview
+          ? <img src={preview} alt="Logo" className="image-upload-preview" style={{ borderRadius: "50%" }} />
+          : <div className="image-upload-placeholder"><span className="image-upload-icon">🏪</span><span>{uploading ? "Subiendo..." : "Subir logo"}</span></div>}
+      </div>
+    </div>
+  );
+}
+
+export default function ConfigLocal({ slug, addToast, alCerrar }) {
+  const [config,    setConfig]    = useState(DEFAULTS);
+  const [perfil,    setPerfil]    = useState({ nombre: "", logoUrl: "", whatsapp: "" });
   const [guardando, setGuardando] = useState(false);
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "configuracion", "local"), (snap) => {
+    const unsub = onSnapshot(doc(db, "comercios", slug, "configuracion", "local"), snap => {
       if (snap.exists()) setConfig({ ...DEFAULTS, ...snap.data() });
     });
     return () => unsub();
-  }, []);
+  }, [slug]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "comercios", slug), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setPerfil({ nombre: d.nombre || "", logoUrl: d.logoUrl || "", whatsapp: d.whatsapp || "" });
+      }
+    });
+    return () => unsub();
+  }, [slug]);
+
+  const guardarPerfil = async () => {
+    if (!perfil.nombre.trim()) return addToast("El nombre no puede estar vacío.", "warning");
+    setGuardandoPerfil(true);
+    try {
+      await updateDoc(doc(db, "comercios", slug), {
+        nombre: perfil.nombre.trim(),
+        logoUrl: perfil.logoUrl,
+        whatsapp: perfil.whatsapp.trim(),
+      });
+      addToast("✅ Perfil actualizado.", "success");
+    } catch { addToast("❌ Error al guardar perfil.", "error"); }
+    finally { setGuardandoPerfil(false); }
+  };
 
   const guardar = async () => {
     setGuardando(true);
     try {
-      await setDoc(doc(db, "configuracion", "local"), { ...config, actualizadoEn: serverTimestamp() });
+      await setDoc(doc(db, "comercios", slug, "configuracion", "local"), { ...config, actualizadoEn: serverTimestamp() });
       addToast("✅ Configuración guardada.", "success");
     } catch { addToast("❌ Error al guardar.", "error"); }
     finally { setGuardando(false); }
   };
 
   const toggleMetodo = (id) =>
-    setConfig((p) => ({
+    setConfig(p => ({
       ...p,
-      metodosPago: p.metodosPago.includes(id) ? p.metodosPago.filter((m) => m !== id) : [...p.metodosPago, id],
+      metodosPago: p.metodosPago.includes(id) ? p.metodosPago.filter(m => m !== id) : [...p.metodosPago, id],
     }));
 
   const updateHorario = (dia, campo, valor) =>
-    setConfig((p) => ({ ...p, horarios: { ...p.horarios, [dia]: { ...p.horarios[dia], [campo]: valor } } }));
+    setConfig(p => ({ ...p, horarios: { ...p.horarios, [dia]: { ...p.horarios[dia], [campo]: valor } } }));
 
-  const u = (campo) => (e) => setConfig((p) => ({ ...p, [campo]: e.target.value }));
+  const u = campo => e => setConfig(p => ({ ...p, [campo]: e.target.value }));
 
   return (
     <div className="config-container">
@@ -55,11 +116,29 @@ export default function ConfigLocal({ addToast, alCerrar }) {
         <button className="btn-cerrar-vista" onClick={alCerrar}>✕ VOLVER</button>
       </div>
 
+      {/* Perfil del comercio */}
+      <div className="config-seccion config-perfil-card">
+        <h3>🏪 Perfil del Comercio</h3>
+        <div className="config-perfil-logo">
+          <LogoUpload
+            onUpload={url => setPerfil(p => ({ ...p, logoUrl: url }))}
+            addToast={addToast}
+            initialUrl={perfil.logoUrl}
+            storagePath={`comercios/${slug}`}
+          />
+        </div>
+        <input className="input-base" placeholder="Nombre del comercio" value={perfil.nombre} onChange={e => setPerfil(p => ({ ...p, nombre: e.target.value }))} maxLength={80} />
+        <input className="input-base" placeholder="WhatsApp (ej: 5491112345678)" value={perfil.whatsapp} onChange={e => setPerfil(p => ({ ...p, whatsapp: e.target.value }))} maxLength={20} />
+        <button className="btn-guardar-config" onClick={guardarPerfil} disabled={guardandoPerfil}>
+          {guardandoPerfil ? "Guardando..." : "💾 GUARDAR PERFIL"}
+        </button>
+      </div>
+
       <div className="config-estado-card">
         <span className="config-estado-label">Estado del Local</span>
         <button
           className={`btn-estado ${config.estado === "ABIERTO" ? "abierto" : "cerrado"}`}
-          onClick={() => setConfig((p) => ({ ...p, estado: p.estado === "ABIERTO" ? "CERRADO" : "ABIERTO" }))}
+          onClick={() => setConfig(p => ({ ...p, estado: p.estado === "ABIERTO" ? "CERRADO" : "ABIERTO" }))}
         >
           {config.estado === "ABIERTO" ? "🟢 ABIERTO" : "🔴 CERRADO"}
         </button>
@@ -67,16 +146,16 @@ export default function ConfigLocal({ addToast, alCerrar }) {
 
       <div className="config-seccion">
         <h3>📍 Información del Local</h3>
-        <input className="input-base" placeholder="Nombre" value={config.nombre} onChange={u("nombre")} />
-        <input className="input-base" placeholder="Dirección" value={config.direccion} onChange={u("direccion")} />
-        <input className="input-base" placeholder="Teléfono" value={config.telefono} onChange={u("telefono")} />
+        <input className="input-base" placeholder="Nombre"     value={config.nombre}    onChange={u("nombre")}    />
+        <input className="input-base" placeholder="Dirección"  value={config.direccion} onChange={u("direccion")} />
+        <input className="input-base" placeholder="Teléfono"   value={config.telefono}  onChange={u("telefono")}  />
         <input className="input-base" placeholder="Email" type="email" value={config.email} onChange={u("email")} />
       </div>
 
       <div className="config-seccion">
         <h3>🔔 Notificaciones</h3>
         <label className="config-toggle-label">
-          <input type="checkbox" checked={config.notificaciones} onChange={(e) => setConfig((p) => ({ ...p, notificaciones: e.target.checked }))} />
+          <input type="checkbox" checked={config.notificaciones} onChange={e => setConfig(p => ({ ...p, notificaciones: e.target.checked }))} />
           Sonidos de nuevos pedidos
         </label>
       </div>
@@ -84,7 +163,7 @@ export default function ConfigLocal({ addToast, alCerrar }) {
       <div className="config-seccion">
         <h3>💳 Métodos de Pago</h3>
         <div className="config-metodos-grid">
-          {METODOS.map((m) => (
+          {METODOS.map(m => (
             <button key={m.id} className={`config-metodo-btn ${config.metodosPago.includes(m.id) ? "activo" : ""}`} onClick={() => toggleMetodo(m.id)}>
               {m.nombre}
             </button>
@@ -95,18 +174,18 @@ export default function ConfigLocal({ addToast, alCerrar }) {
       <div className="config-seccion">
         <h3>🕐 Horarios</h3>
         <div className="config-horarios">
-          {DIAS.map((dia) => (
+          {DIAS.map(dia => (
             <div key={dia} className="config-horario-row">
               <span className="config-dia">{dia.charAt(0).toUpperCase() + dia.slice(1)}</span>
               <label className="config-cerrado-check">
-                <input type="checkbox" checked={config.horarios[dia]?.cerrado || false} onChange={(e) => updateHorario(dia, "cerrado", e.target.checked)} />
+                <input type="checkbox" checked={config.horarios[dia]?.cerrado || false} onChange={e => updateHorario(dia, "cerrado", e.target.checked)} />
                 Cerrado
               </label>
               {!config.horarios[dia]?.cerrado && (
                 <>
-                  <input type="time" value={config.horarios[dia]?.apertura || "09:00"} onChange={(e) => updateHorario(dia, "apertura", e.target.value)} className="input-time" />
+                  <input type="time" value={config.horarios[dia]?.apertura || "09:00"} onChange={e => updateHorario(dia, "apertura", e.target.value)} className="input-time" />
                   <span style={{ color: "var(--text-dim)" }}>—</span>
-                  <input type="time" value={config.horarios[dia]?.cierre || "23:00"} onChange={(e) => updateHorario(dia, "cierre", e.target.value)} className="input-time" />
+                  <input type="time" value={config.horarios[dia]?.cierre || "23:00"} onChange={e => updateHorario(dia, "cierre", e.target.value)} className="input-time" />
                 </>
               )}
             </div>

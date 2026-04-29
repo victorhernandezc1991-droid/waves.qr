@@ -1,72 +1,77 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
-import {
-  collection, onSnapshot, addDoc, query,
-  orderBy, limit, getDocs, serverTimestamp,
-} from "firebase/firestore";
+import { collection, onSnapshot, doc, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "firebase/firestore";
+import { filtrarPorTurno } from "../lib/utils";
 
-export default function CierreCaja({ addToast, alCerrar }) {
-  const [pedidos, setPedidos]                   = useState([]);
-  const [cierresAnteriores, setCierresAnteriores] = useState([]);
-  const [turno, setTurno]                       = useState("completo");
-  const [loading, setLoading]                   = useState(true);
+export default function CierreCaja({ slug, addToast, alCerrar }) {
+  const [pedidos,  setPedidos]  = useState([]);
+  const [cierres,  setCierres]  = useState([]);
+  const [turno,    setTurno]    = useState(() => {
+    const h = new Date().getHours();
+    return h >= 6 && h < 12 ? "mañana" : h >= 12 && h < 18 ? "tarde" : h >= 18 ? "noche" : "completo";
+  });
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
+  const [loading,   setLoading]   = useState(true);
+  const [expandido, setExpandido] = useState(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "pedidos"), (snap) => {
-      setPedidos(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const unsub = onSnapshot(collection(db, "comercios", slug, "pedidos"), snap => {
+      setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     (async () => {
       try {
-        const q = query(collection(db, "cierresCaja"), orderBy("creadoEn", "desc"), limit(7));
+        const q = query(collection(db, "comercios", slug, "cierresCaja"), orderBy("creadoEn", "desc"), limit(100));
         const snap = await getDocs(q);
-        setCierresAnteriores(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setCierres(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error(e); }
     })();
-  }, []);
+  }, [slug]);
 
-  const finalizados = pedidos.filter((p) => p.estado === "finalizado");
-  const anulados    = pedidos.filter((p) => p.estado === "anulado");
-
-  const totalVentas     = finalizados.reduce((a, p) => a + (p.total || 0), 0);
-  const ticketsEmitidos = finalizados.length;
-  const ticketPromedio  = ticketsEmitidos > 0 ? totalVentas / ticketsEmitidos : 0;
-
-  const desglose = {
-    efectivo:       finalizados.filter((p) => p.metodoPago === "efectivo").reduce((a, p) => a + (p.total || 0), 0),
-    tarjeta:        finalizados.filter((p) => p.metodoPago === "tarjeta").reduce((a, p) => a + (p.total || 0), 0),
-    mercadoPago:    finalizados.filter((p) => p.metodoPago === "mercadoPago").reduce((a, p) => a + (p.total || 0), 0),
-    sinEspecificar: finalizados.filter((p) => !p.metodoPago).reduce((a, p) => a + (p.total || 0), 0),
+  const fechaStr      = fechaSeleccionada.toLocaleDateString("es-AR");
+  const pedidosHoy    = pedidos.filter(p =>
+    p.creadoEn
+      ? (p.creadoEn.toDate ? p.creadoEn.toDate() : new Date(p.creadoEn)).toLocaleDateString("es-AR") === fechaStr
+      : false
+  );
+  const pedidosFiltrados = filtrarPorTurno(pedidosHoy, turno);
+  const finalizados   = pedidosFiltrados.filter(p => p.estado === "finalizado");
+  const anulados      = pedidosFiltrados.filter(p => p.estado === "anulado");
+  const totalVentas   = finalizados.reduce((a, p) => a + (p.total || 0), 0);
+  const tickets       = finalizados.length;
+  const promedio      = tickets > 0 ? totalVentas / tickets : 0;
+  const desglose      = {
+    efectivo:       finalizados.filter(p => p.metodoPago === "efectivo").reduce((a, p) => a + (p.total || 0), 0),
+    tarjeta:        finalizados.filter(p => p.metodoPago === "tarjeta").reduce((a, p) => a + (p.total || 0), 0),
+    mercadoPago:    finalizados.filter(p => p.metodoPago === "mercadoPago").reduce((a, p) => a + (p.total || 0), 0),
+    sinEspecificar: finalizados.filter(p => !p.metodoPago).reduce((a, p) => a + (p.total || 0), 0),
   };
-
   const montoAnulaciones = anulados.reduce((a, p) => a + (p.total || 0), 0);
-  const ultimoCierre     = cierresAnteriores[0];
-  const diferencia       = ultimoCierre ? totalVentas - (ultimoCierre.totalVentas || 0) : null;
-  const porcentajeDif    = ultimoCierre?.totalVentas
-    ? ((diferencia / ultimoCierre.totalVentas) * 100).toFixed(1) : null;
+  const cierreAnterior   = cierres[0];
+  const diferencia       = cierreAnterior ? totalVentas - (cierreAnterior.totalVentas || 0) : null;
+  const diferenciaPct    = cierreAnterior?.totalVentas ? (diferencia / cierreAnterior.totalVentas * 100).toFixed(1) : null;
+  const cierresHoy       = cierres.filter(c => c.fecha === fechaStr);
+  const fechaISO         = fechaSeleccionada.toISOString().split("T")[0];
+  const fechaLabel       = fechaSeleccionada.toLocaleDateString("es-AR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const guardarCierre = async () => {
     if (finalizados.length === 0) return addToast("No hay ventas finalizadas.", "warning");
     if (!window.confirm(`¿Confirmar cierre por $${totalVentas.toLocaleString("es-AR")}?`)) return;
     try {
-      await addDoc(collection(db, "cierresCaja"), {
-        fecha: new Date().toLocaleDateString("es-AR"),
-        turno, totalVentas, desglose, ticketsEmitidos,
-        ticketPromedio: Math.round(ticketPromedio),
+      await addDoc(collection(db, "comercios", slug, "cierresCaja"), {
+        fecha: fechaStr, turno, totalVentas, desglose,
+        ticketsEmitidos: tickets, ticketPromedio: Math.round(promedio),
         anulaciones: anulados.length, montoAnulaciones,
+        pedidos: finalizados.map(p => ({ id: p.id, mesa: p.mesa, numeroOrden: p.numeroOrden, items: p.items, total: p.total, metodoPago: p.metodoPago, hora: p.hora })),
         creadoEn: serverTimestamp(),
       });
       addToast("✅ Cierre guardado.", "success");
     } catch { addToast("❌ Error al guardar.", "error"); }
   };
-
-  const hoy = new Date().toLocaleDateString("es-AR", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
 
   return (
     <div className="cierre-caja-container">
@@ -76,10 +81,14 @@ export default function CierreCaja({ addToast, alCerrar }) {
       </div>
 
       <div className="cierre-fecha">
-        <p className="cierre-fecha-texto">{hoy}</p>
+        <div className="cierre-selector-fecha">
+          <label>Fecha:</label>
+          <input type="date" value={fechaISO} onChange={e => setFechaSeleccionada(new Date(e.target.value + "T00:00:00"))} className="input-date" />
+          <span className="cierre-fecha-texto">{fechaLabel}</span>
+        </div>
         <div className="cierre-turno">
           <label>Turno:</label>
-          <select value={turno} onChange={(e) => setTurno(e.target.value)} className="input-select">
+          <select value={turno} onChange={e => setTurno(e.target.value)} className="input-select">
             <option value="mañana">Mañana</option>
             <option value="tarde">Tarde</option>
             <option value="noche">Noche</option>
@@ -88,9 +97,7 @@ export default function CierreCaja({ addToast, alCerrar }) {
         </div>
       </div>
 
-      {loading ? (
-        <p className="cierre-loading">Cargando datos...</p>
-      ) : (
+      {loading ? <p className="cierre-loading">Cargando datos...</p> : (
         <>
           <div className="cierre-total-card">
             <span className="cierre-total-label">Total Ventas</span>
@@ -98,7 +105,7 @@ export default function CierreCaja({ addToast, alCerrar }) {
             {diferencia !== null && (
               <span className={`cierre-comparativa ${diferencia >= 0 ? "positiva" : "negativa"}`}>
                 {diferencia >= 0 ? "▲" : "▼"} ${Math.abs(diferencia).toLocaleString("es-AR")}
-                {porcentajeDif && ` (${diferencia >= 0 ? "+" : ""}${porcentajeDif}%)`}
+                {diferenciaPct && ` (${diferencia >= 0 ? "+" : ""}${diferenciaPct}%)`}
                 <small> vs cierre anterior</small>
               </span>
             )}
@@ -108,15 +115,15 @@ export default function CierreCaja({ addToast, alCerrar }) {
             <h3>Desglose por Método de Pago</h3>
             <div className="desglose-grid">
               {[
-                { icon: "💵", nombre: "Efectivo", monto: desglose.efectivo },
-                { icon: "💳", nombre: "Tarjeta", monto: desglose.tarjeta },
+                { icon: "💵", nombre: "Efectivo",     monto: desglose.efectivo },
+                { icon: "💳", nombre: "Tarjeta",      monto: desglose.tarjeta },
                 { icon: "📱", nombre: "Mercado Pago", monto: desglose.mercadoPago },
                 ...(desglose.sinEspecificar > 0 ? [{ icon: "❓", nombre: "Sin especificar", monto: desglose.sinEspecificar }] : []),
-              ].map((d, i) => (
+              ].map((item, i) => (
                 <div key={i} className="desglose-item">
-                  <span className="desglose-icon">{d.icon}</span>
-                  <span className="desglose-nombre">{d.nombre}</span>
-                  <span className="desglose-monto">${d.monto.toLocaleString("es-AR")}</span>
+                  <span className="desglose-icon">{item.icon}</span>
+                  <span className="desglose-nombre">{item.nombre}</span>
+                  <span className="desglose-monto">${item.monto.toLocaleString("es-AR")}</span>
                 </div>
               ))}
             </div>
@@ -125,44 +132,69 @@ export default function CierreCaja({ addToast, alCerrar }) {
           <div className="cierre-metricas">
             <h3>Métricas</h3>
             <div className="metricas-grid">
-              <div className="metrica-item">
-                <span className="metrica-valor">{ticketsEmitidos}</span>
-                <span className="metrica-label">Tickets</span>
-              </div>
-              <div className="metrica-item">
-                <span className="metrica-valor">${Math.round(ticketPromedio).toLocaleString("es-AR")}</span>
-                <span className="metrica-label">Promedio</span>
-              </div>
-              <div className="metrica-item anulaciones">
-                <span className="metrica-valor">{anulados.length}</span>
-                <span className="metrica-label">Anulaciones</span>
-              </div>
-              {montoAnulaciones > 0 && (
-                <div className="metrica-item anulaciones">
-                  <span className="metrica-valor">${montoAnulaciones.toLocaleString("es-AR")}</span>
-                  <span className="metrica-label">$ Anulados</span>
-                </div>
-              )}
+              <div className="metrica-item"><span className="metrica-valor">{tickets}</span><span className="metrica-label">Tickets</span></div>
+              <div className="metrica-item"><span className="metrica-valor">${Math.round(promedio).toLocaleString("es-AR")}</span><span className="metrica-label">Promedio</span></div>
+              <div className="metrica-item anulaciones"><span className="metrica-valor">{anulados.length}</span><span className="metrica-label">Anulaciones</span></div>
+              {montoAnulaciones > 0 && <div className="metrica-item anulaciones"><span className="metrica-valor">${montoAnulaciones.toLocaleString("es-AR")}</span><span className="metrica-label">$ Anulados</span></div>}
             </div>
           </div>
 
-          {cierresAnteriores.length > 0 && (
+          {cierresHoy.length > 0 && (
             <div className="cierre-historial">
-              <h3>Cierres Anteriores</h3>
+              <h3>📂 Historial de Cierres - {fechaStr}</h3>
               <div className="cierre-historial-lista">
-                {cierresAnteriores.map((c) => (
+                {cierresHoy.map(c => (
                   <div key={c.id} className="cierre-historial-item">
-                    <span>{c.fecha} — {c.turno}</span>
-                    <span className="cierre-historial-monto">${c.totalVentas?.toLocaleString("es-AR")}</span>
+                    <button className="cierre-historial-header" onClick={() => setExpandido(expandido === c.id ? null : c.id)}>
+                      <div className="cierre-historial-info">
+                        <span className="cierre-historial-turno">{c.turno}</span>
+                        <span className="cierre-historial-tickets">{c.ticketsEmitidos} tickets</span>
+                        <span className="cierre-historial-hora">{c.creadoEn?.toDate?.().toLocaleTimeString("es-AR") || "—"}</span>
+                      </div>
+                      <span className="cierre-historial-monto">${c.totalVentas?.toLocaleString("es-AR")}</span>
+                      <span className="cierre-historial-toggle">{expandido === c.id ? "▼" : "▶"}</span>
+                    </button>
+                    {expandido === c.id && (
+                      <div className="cierre-historial-detalles">
+                        <div className="detalles-desglose">
+                          <h4>Desglose</h4>
+                          <div className="desglose-items">
+                            {c.desglose?.efectivo    > 0 && <p>💵 Efectivo: ${c.desglose.efectivo.toLocaleString("es-AR")}</p>}
+                            {c.desglose?.tarjeta     > 0 && <p>💳 Tarjeta: ${c.desglose.tarjeta.toLocaleString("es-AR")}</p>}
+                            {c.desglose?.mercadoPago > 0 && <p>📱 Mercado Pago: ${c.desglose.mercadoPago.toLocaleString("es-AR")}</p>}
+                            {c.desglose?.sinEspecificar > 0 && <p>❓ Sin especificar: ${c.desglose.sinEspecificar.toLocaleString("es-AR")}</p>}
+                          </div>
+                        </div>
+                        {c.pedidos?.length > 0 && (
+                          <div className="detalles-comandas">
+                            <h4>Comandas ({c.pedidos.length})</h4>
+                            <div className="comandas-list">
+                              {c.pedidos.map((p, i) => (
+                                <div key={i} className="comanda-item">
+                                  <div className="comanda-header">
+                                    <span>🍽️ Mesa {p.mesa || "—"}</span>
+                                    <span className="comanda-orden">#{p.numeroOrden}</span>
+                                    <span className="comanda-hora">{p.hora}</span>
+                                  </div>
+                                  <ul className="comanda-items">{p.items?.map((it, j) => <li key={j}>{it.cantidad}x {it.nombre}</li>)}</ul>
+                                  <div className="comanda-footer">
+                                    <span>{p.metodoPago === "efectivo" ? "💵" : p.metodoPago === "tarjeta" ? "💳" : "📱"}</span>
+                                    <span className="comanda-total">${p.total?.toLocaleString("es-AR")}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <button className="btn-guardar-cierre" onClick={guardarCierre}>
-            📋 GUARDAR CIERRE DE CAJA
-          </button>
+          <button className="btn-guardar-cierre" onClick={guardarCierre}>📋 GUARDAR CIERRE DE CAJA</button>
         </>
       )}
     </div>
