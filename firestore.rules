@@ -2,28 +2,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Comercios: lectura pública total, escritura con auth
-    match /comercios/{slug} {
-      allow read: if true;
-      allow write: if request.auth != null;
-
-      match /{subcol}/{docId} {
-        allow read: if true;
-        allow write: if request.auth != null;
-      }
-
-      match /{subcol}/{docId}/{nested=**} {
-        allow read: if true;
-        allow write: if request.auth != null;
-      }
+    // Helper: ¿el request viene del owner del comercio identificado por slug?
+    function isOwner(slug) {
+      return request.auth != null
+        && request.auth.uid == get(/databases/$(database)/documents/comercios/$(slug)).data.ownerUid;
     }
 
-    // Colecciones legacy
-    match /productos/{docId}     { allow read: if true; allow write: if request.auth != null; }
-    match /pedidos/{docId}       { allow read, write: if true; }
-    match /llamadasMozo/{docId}  { allow read, write: if true; }
-    match /configuracion/{docId} { allow read: if true; allow write: if request.auth != null; }
-    match /config/{docId}        { allow read: if true; allow write: if request.auth != null; }
-    match /historial/{docId}     { allow read, write: if request.auth != null; }
+    match /comercios/{slug} {
+      // Lectura pública (clientes anónimos pueden ver el menú)
+      allow read: if true;
+
+      // Solo el owner puede modificar su comercio. Crearlo requiere auth y se
+      // permite que el ownerUid del documento coincida con el uid de quien lo crea.
+      allow update, delete: if request.auth != null
+        && request.auth.uid == resource.data.ownerUid;
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.ownerUid;
+
+      // Productos: lectura pública, escritura solo owner
+      match /productos/{docId} {
+        allow read: if true;
+        allow write: if isOwner(slug);
+      }
+
+      // Pedidos: lectura pública (status tracking del cliente),
+      // creación libre (el cliente anónimo en mesa puede crear),
+      // update/delete solo owner. La creación se restringe al campo total
+      // mínimo viable para evitar inyección de basura.
+      match /pedidos/{docId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['estado', 'total', 'items'])
+          && request.resource.data.estado == 'pendiente'
+          && request.resource.data.total is number
+          && request.resource.data.total >= 0;
+        allow update, delete: if isOwner(slug);
+      }
+
+      // Llamadas al mozo: el cliente puede crearlas, solo owner las gestiona
+      match /llamadasMozo/{docId} {
+        allow read: if isOwner(slug);
+        allow create: if request.resource.data.keys().hasAll(['mesa', 'atendida'])
+          && request.resource.data.atendida == false;
+        allow update, delete: if isOwner(slug);
+      }
+
+      // Historial: solo owner
+      match /historial/{docId} {
+        allow read, write: if isOwner(slug);
+      }
+
+      // Cierres de caja: solo owner
+      match /cierresCaja/{docId} {
+        allow read, write: if isOwner(slug);
+      }
+
+      // Config y configuración: lectura pública (incluye contadores, menú del día,
+      // info del local), escritura solo owner.
+      match /config/{docId} {
+        allow read: if true;
+        allow write: if isOwner(slug);
+      }
+      match /configuracion/{docId} {
+        allow read: if true;
+        allow write: if isOwner(slug);
+      }
+    }
   }
 }

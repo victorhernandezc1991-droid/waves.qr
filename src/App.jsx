@@ -28,7 +28,15 @@ const METODOS_PAGO = [
 ];
 
 // ─── UTILIDADES ──────────────────────────────────────────────────────────────
-const sanitize      = s => String(s ?? "").trim().replace(/[<>]/g, "").slice(0, MAX_NOMBRE);
+// Strip HTML/JS metachars y URI schemes peligrosos. React escapa al renderizar
+// JSX, pero queremos evitar que strings maliciosos lleguen a Firestore para no
+// contaminar exports/JSON dumps ni habilitar ataques en lectores externos.
+const sanitize = s => String(s ?? "")
+  .trim()
+  .replace(/[<>"'`\\]/g, "")
+  .replace(/javascript:/gi, "")
+  .replace(/data:text\/html/gi, "")
+  .slice(0, MAX_NOMBRE);
 const validarPrecio = v => { const n = parseFloat(v); return !isNaN(n) && n > 0 && n < 1_000_000; };
 const validarMesa   = v => { const n = parseInt(v, 10); return !isNaN(n) && n > 0 && n <= 200; };
 const esURLSegura   = u => typeof u === "string" && /^https?:\/\/.+/.test(u.trim());

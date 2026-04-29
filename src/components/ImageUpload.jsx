@@ -1,7 +1,14 @@
 import { useState, useRef } from "react";
 
-const CLOUDINARY_CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    || "dtsustj3q";
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "presetwaves";
+const CLOUDINARY_CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+  console.error(
+    "[ImageUpload] Faltan variables de entorno VITE_CLOUDINARY_CLOUD_NAME o " +
+    "VITE_CLOUDINARY_UPLOAD_PRESET. La subida de imágenes no va a funcionar."
+  );
+}
 
 export async function compressImage(file, maxSize = 800) {
   return new Promise((resolve, reject) => {
