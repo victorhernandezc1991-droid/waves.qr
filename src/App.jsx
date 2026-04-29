@@ -556,15 +556,43 @@ function RestauranteApp() {
             </>
           )}
 
-          {/* Productos */}
-          <div className="product-list">
-            {productosFiltrados.map(p => (
-              <ProductoItem key={p.id} p={p} slug={slug} esAdmin={esAdmin} eliminarProducto={eliminarProducto} agregarAlCarrito={agregarAlCarrito} addToast={addToast} />
-            ))}
-            {productosFiltrados.length === 0 && !loadingProductos && (
-              <p style={{ textAlign: "center", width: "100%", color: "var(--text-dim)", padding: "40px 0" }}>No se encontraron productos.</p>
-            )}
-          </div>
+          {/* Productos agrupados por categoría */}
+          {productosFiltrados.length === 0 && !loadingProductos ? (
+            <p style={{ textAlign: "center", width: "100%", color: "var(--text-dim)", padding: "40px 0" }}>No se encontraron productos.</p>
+          ) : (
+            (() => {
+              const grupos = productosFiltrados.reduce((acc, p) => {
+                const label = (p.categoria || "Sin categoría").trim();
+                const key   = label.toLowerCase();
+                if (!acc[key]) acc[key] = { label, items: [] };
+                acc[key].items.push(p);
+                return acc;
+              }, {});
+              return Object.entries(grupos).map(([key, { label, items }]) => {
+                const titulo = label.charAt(0).toUpperCase() + label.slice(1);
+                const partes = titulo.split(" ");
+                const bold   = partes[0];
+                const resto  = partes.slice(1).join(" ");
+                return (
+                  <div key={key} className="categoria-seccion">
+                    <div className="categoria-header">
+                      <span className="categoria-linea" />
+                      <div className="categoria-badge">
+                        <span className="categoria-badge-bold">{bold}</span>
+                        {resto && <span className="categoria-badge-regular">{resto}</span>}
+                      </div>
+                      <span className="categoria-linea" />
+                    </div>
+                    <div className="product-list">
+                      {items.map(p => (
+                        <ProductoItem key={p.id} p={p} slug={slug} esAdmin={esAdmin} eliminarProducto={eliminarProducto} agregarAlCarrito={agregarAlCarrito} addToast={addToast} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          )}
 
           {/* Llamar mozo */}
           {mesa && <button className="btn-llamar-mozo" onClick={llamarMozo} style={{ margin: "20px 12px 0" }}>🖐️ Llamar al Mozo</button>}
