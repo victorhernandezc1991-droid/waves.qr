@@ -50,8 +50,10 @@ export default function ConfigLocal({ slug, addToast, alCerrar }) {
         whatsapp: perfil.whatsapp.trim(),
       });
       addToast("✅ Perfil actualizado.", "success");
-    } catch { addToast("❌ Error al guardar perfil.", "error"); }
-    finally { setGuardandoPerfil(false); }
+    } catch (err) {
+      console.error("[ConfigLocal:guardarPerfil]", err);
+      addToast(err?.message || "❌ Error al guardar perfil.", "error");
+    } finally { setGuardandoPerfil(false); }
   };
 
   const guardar = async () => {
@@ -59,8 +61,10 @@ export default function ConfigLocal({ slug, addToast, alCerrar }) {
     try {
       await setDoc(doc(db, "comercios", slug, "configuracion", "local"), { ...config, actualizadoEn: serverTimestamp() });
       addToast("✅ Configuración guardada.", "success");
-    } catch { addToast("❌ Error al guardar.", "error"); }
-    finally { setGuardando(false); }
+    } catch (err) {
+      console.error("[ConfigLocal:guardar]", err);
+      addToast(err?.message || "❌ Error al guardar.", "error");
+    } finally { setGuardando(false); }
   };
 
   const toggleMetodo = (id) =>

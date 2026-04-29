@@ -70,7 +70,10 @@ export default function CierreCaja({ slug, addToast, alCerrar }) {
         creadoEn: serverTimestamp(),
       });
       addToast("✅ Cierre guardado.", "success");
-    } catch { addToast("❌ Error al guardar.", "error"); }
+    } catch (err) {
+      console.error("[CierreCaja:guardarCierre]", err);
+      addToast(err?.message || "❌ Error al guardar.", "error");
+    }
   };
 
   return (

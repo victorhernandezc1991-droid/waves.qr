@@ -18,14 +18,14 @@ export default function StockManager({ slug, addToast, alCerrar }) {
     const n = parseInt(val, 10);
     if (isNaN(n) || n < 0) return;
     try { await updateDoc(doc(db, "comercios", slug, "productos", id), { stock: n }); }
-    catch { addToast("Error al actualizar stock.", "error"); }
+    catch (err) { console.error("[StockManager]", err); addToast(err?.message || "Error al actualizar stock.", "error"); }
   };
 
   const updateStockMinimo = async (id, val) => {
     const n = parseInt(val, 10);
     if (isNaN(n) || n < 0) return;
     try { await updateDoc(doc(db, "comercios", slug, "productos", id), { stockMinimo: n }); }
-    catch { addToast("Error al actualizar.", "error"); }
+    catch (err) { console.error("[StockManager]", err); addToast(err?.message || "Error al actualizar.", "error"); }
   };
 
   const getEstado = p =>

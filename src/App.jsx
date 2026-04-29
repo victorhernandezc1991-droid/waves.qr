@@ -324,8 +324,13 @@ function RestauranteApp() {
   // ── CRUD Productos
   const eliminarProducto = async id => {
     if (!window.confirm("¿Eliminar permanentemente?")) return;
-    try { await deleteDoc(doc(db, "comercios", slug, "productos", id)); addToast("Eliminado.", "success"); }
-    catch { addToast("Error.", "error"); }
+    try {
+      await deleteDoc(doc(db, "comercios", slug, "productos", id));
+      addToast("Eliminado.", "success");
+    } catch (err) {
+      console.error("[eliminarProducto]", err);
+      addToast(err?.message || "No se pudo eliminar.", "error");
+    }
   };
 
   const agregarProducto = async e => {
@@ -343,7 +348,10 @@ function RestauranteApp() {
         stock: 50, stockMinimo: 5, creadoEn: serverTimestamp(),
       });
       e.target.reset(); setFotoProducto(""); addToast("✅ Producto añadido.", "success");
-    } catch { addToast("❌ Error.", "error"); }
+    } catch (err) {
+      console.error("[agregarProducto]", err);
+      addToast(err?.message || "No se pudo agregar.", "error");
+    }
   };
 
   // ── Enviar pedido
@@ -374,8 +382,10 @@ function RestauranteApp() {
       setMostrarConfirmacion(true);
       setCarrito([]); setNotas(""); setMetodoPago("");
       addToast("🔔 ¡Pedido enviado!", "success");
-    } catch { addToast("❌ Error.", "error"); }
-    finally { setEnviando(false); }
+    } catch (err) {
+      console.error("[enviarPedido]", err);
+      addToast(err?.message || "No se pudo enviar el pedido.", "error");
+    } finally { setEnviando(false); }
   };
 
   // ── Llamar mozo
@@ -387,7 +397,10 @@ function RestauranteApp() {
         atendida: false, creadoEn: serverTimestamp(),
       });
       addToast("🖐️ ¡Mozo notificado!", "success");
-    } catch { addToast("Error.", "error"); }
+    } catch (err) {
+      console.error("[llamarMozo]", err);
+      addToast(err?.message || "No se pudo llamar al mozo.", "error");
+    }
   };
 
   const cambiarVista = v => { setVistaActiva(v); setMenuAbierto(false); };
@@ -422,11 +435,17 @@ function RestauranteApp() {
             className="btn-theme-toggle"
             onClick={() => setTema(p => p === "light" ? "dark" : p === "dark" ? "seleccion" : "light")}
             title="Cambiar tema"
+            aria-label={`Cambiar tema, actual: ${tema === "light" ? "claro" : tema === "dark" ? "oscuro" : "selección"}`}
           >
             {tema === "light" ? "☀️" : tema === "dark" ? "🌙" : "⭐"}
           </button>
           {esAdmin && (
-            <button className="btn-cocina-quick" onClick={() => cambiarVista("cocina")} title="Ir a Cocina">
+            <button
+              className="btn-cocina-quick"
+              onClick={() => cambiarVista("cocina")}
+              title="Ir a Cocina"
+              aria-label="Ir a la vista de cocina"
+            >
               👨‍🍳
             </button>
           )}
@@ -447,13 +466,20 @@ function RestauranteApp() {
         <div className="menu-container">
           {/* Header */}
           <header className="header">
-            <div onClick={loginLoading ? undefined : user ? logout : login} className="header-icon" style={{ cursor: "pointer", opacity: loginLoading ? 0.5 : 1 }}>
+            <button
+              type="button"
+              onClick={loginLoading ? undefined : user ? logout : login}
+              className="header-icon"
+              style={{ cursor: "pointer", opacity: loginLoading ? 0.5 : 1, background: "transparent", border: "none", padding: 0 }}
+              aria-label={user ? `Cerrar sesión de ${user.displayName || user.email}` : "Iniciar sesión con Google"}
+              disabled={loginLoading}
+            >
               <img
                 src={user ? user.photoURL : (tema === "seleccion" ? "/afa-logo.png" : logoUrl)}
-                alt="Logo"
+                alt={user ? `Avatar de ${user.displayName || ""}` : `Logo de ${nombre}`}
                 style={{ borderRadius: user && tema !== "seleccion" ? "50%" : (tema === "seleccion" ? "0" : "50%") }}
               />
-            </div>
+            </button>
             <h1 className="header-title" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span className={tema === "seleccion" ? "waves-seleccion-text" : ""}>{nombre}</span>
               {tema === "seleccion" && (
@@ -464,18 +490,35 @@ function RestauranteApp() {
           </header>
 
           {/* Hamburger */}
-          <button className="hamburger-btn" onClick={() => setMenuAbierto(true)}>
+          <button
+            className="hamburger-btn"
+            onClick={() => setMenuAbierto(true)}
+            aria-label="Abrir menú"
+            aria-expanded={menuAbierto}
+            aria-controls="drawer-nav"
+          >
             <span className="hamburger-line" /><span className="hamburger-line" /><span className="hamburger-line" />
           </button>
 
           {/* Drawer */}
           <div className={`drawer-overlay ${menuAbierto ? "open" : ""}`} onClick={() => setMenuAbierto(false)} />
-          <nav className={`drawer-menu ${menuAbierto ? "open" : ""}`}>
+          <nav
+            id="drawer-nav"
+            className={`drawer-menu ${menuAbierto ? "open" : ""}`}
+            role="dialog"
+            aria-modal={menuAbierto}
+            aria-hidden={!menuAbierto}
+          >
             <div className="drawer-header"><h2>{nombre}</h2><button className="drawer-close" onClick={() => setMenuAbierto(false)}>✕</button></div>
             <div className="drawer-section">
               <p className="drawer-section-title">Categorías</p>
               {CATEGORIAS.map(c => (
-                <button key={c} className={`drawer-item ${categoriaSel === c ? "active" : ""}`} onClick={() => { setCategoriaSel(c); setMenuAbierto(false); }}>
+                <button
+                  key={c}
+                  className={`drawer-item ${categoriaSel === c ? "active" : ""}`}
+                  onClick={() => { setCategoriaSel(c); setMenuAbierto(false); }}
+                  aria-pressed={categoriaSel === c}
+                >
                   {CAT_ICONS[c]} {c.charAt(0).toUpperCase() + c.slice(1)}
                 </button>
               ))}
@@ -633,8 +676,14 @@ function RestauranteApp() {
                     <p className="pago-titulo">Método de Pago</p>
                     <div className="pago-opciones">
                       {METODOS_PAGO.map(m => (
-                        <button key={m.id} className={`pago-opcion ${metodoPago === m.id ? "seleccionado" : ""}`} onClick={() => setMetodoPago(m.id)}
-                          style={metodoPago === m.id ? { borderColor: m.color, boxShadow: `0 0 12px ${m.color}33` } : {}}>
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={`pago-opcion ${metodoPago === m.id ? "seleccionado" : ""}`}
+                          onClick={() => setMetodoPago(m.id)}
+                          style={metodoPago === m.id ? { borderColor: m.color, boxShadow: `0 0 12px ${m.color}33` } : {}}
+                          aria-pressed={metodoPago === m.id}
+                        >
                           {m.label}
                         </button>
                       ))}
@@ -652,10 +701,10 @@ function RestauranteApp() {
 
       {/* Confirmación */}
       {mostrarConfirmacion && datosConfirmacion && (
-        <div className="confirmacion-overlay">
+        <div className="confirmacion-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmacion-title">
           <div className="confirmacion-card">
-            <div className="confirmacion-check">✓</div>
-            <h2>¡Pedido en marcha!</h2>
+            <div className="confirmacion-check" aria-hidden="true">✓</div>
+            <h2 id="confirmacion-title">¡Pedido en marcha!</h2>
             <p className="confirmacion-orden">{datosConfirmacion.numeroOrden}</p>
             <p className="confirmacion-mesa">Mesa {datosConfirmacion.mesa}</p>
             <ul className="confirmacion-items">{datosConfirmacion.items.map((it, i) => <li key={i}>{it.cantidad}x {it.nombre}</li>)}</ul>

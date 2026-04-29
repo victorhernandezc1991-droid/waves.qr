@@ -91,12 +91,12 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
   const anularPedido = async (id) => {
     if (!window.confirm("¿Anular este pedido?")) return;
     try { await updateDoc(doc(db, "comercios", slug, "pedidos", id), { estado: "anulado" }); addToast("Pedido anulado.", "info"); }
-    catch { addToast("Error.", "error"); }
+    catch (err) { console.error("[CocinaAdmin]", err); addToast(err?.message || "Error.", "error"); }
   };
 
   const atenderLlamada = async (id) => {
     try { await updateDoc(doc(db, "comercios", slug, "llamadasMozo", id), { atendida: true }); }
-    catch { addToast("Error.", "error"); }
+    catch (err) { console.error("[CocinaAdmin]", err); addToast(err?.message || "Error.", "error"); }
   };
 
   const activos = pedidos.filter(p => p.estado === "pendiente" || p.estado === "preparando");
