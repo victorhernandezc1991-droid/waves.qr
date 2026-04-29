@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
-import { db, auth, provider, storage } from "./firebaseConfig";
+import { db, auth, provider } from "./firebaseConfig";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import {
   collection, onSnapshot, addDoc, deleteDoc,
-  doc, updateDoc, serverTimestamp, query, where, setDoc,
+  doc, updateDoc, serverTimestamp, query, where,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import "./App.css";
 
 const CocinaAdmin  = lazy(() => import("./components/CocinaAdmin.jsx"));
@@ -76,44 +75,118 @@ function useComercio(slug) {
   return { comercio, loading, error };
 }
 
-// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
-function ImageUpload({ onUpload, addToast, storagePath = "productos" }) {
-  const [preview,   setPreview]   = useState(null);
-  const [uploading, setUploading] = useState(false);
+// ─── IMAGE UPLOAD (Cloudinary) ────────────────────────────────────────────────
+const CLOUDINARY_CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    || "dtsustj3q";
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "presetwaves";
+
+async function compressImage(file, maxSize = 800) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio  = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width  = img.width  * ratio;
+        canvas.height = img.height * ratio;
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Compression failed")), "image/webp", 0.85);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadToCloudinary(blob, onProgress) {
+  const cloudName    = CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = CLOUDINARY_UPLOAD_PRESET;
+  const formData     = new FormData();
+  formData.append("file", blob, `producto-${Date.now()}.webp`);
+  formData.append("upload_preset", uploadPreset);
+  formData.append("folder", "productos");
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        const data = JSON.parse(xhr.responseText);
+        resolve(data.secure_url);
+      } else reject(new Error(`Cloudinary error ${xhr.status}: ${xhr.responseText}`));
+    };
+    xhr.onerror = () => reject(new Error("Error de red al subir la imagen."));
+    xhr.send(formData);
+  });
+}
+
+function ImageUpload({ onUpload, addToast, initialUrl = "" }) {
+  const [preview,    setPreview]    = useState(initialUrl || null);
+  const [uploading,  setUploading]  = useState(false);
+  const [progress,   setProgress]   = useState(0);
+  const [success,    setSuccess]    = useState(false);
+  const [filename,   setFilename]   = useState("");
   const fileRef = useRef(null);
+
+  const reset = () => { setPreview(null); setProgress(0); setSuccess(false); setFilename(""); onUpload(""); if (fileRef.current) fileRef.current.value = ""; };
 
   const handleFile = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return addToast("Solo imágenes.", "warning");
-    if (file.size > 5 * 1024 * 1024) return addToast("Máximo 5 MB.", "warning");
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result);
-    reader.readAsDataURL(file);
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) return addToast("❌ Formato no soportado. Usá JPG, PNG o WebP.", "error");
+    if (file.size > 6 * 1024 * 1024) return addToast("❌ Imagen demasiado pesada. Máximo 6 MB.", "error");
+    setFilename(file.name);
     setUploading(true);
+    setProgress(0);
+    setSuccess(false);
     try {
-      const sRef = ref(storage, `${storagePath}/${Date.now()}_${file.name}`);
-      await uploadBytes(sRef, file);
-      const url = await getDownloadURL(sRef);
+      const compressed = await compressImage(file, 800);
+      const localUrl   = URL.createObjectURL(compressed);
+      setPreview(localUrl);
+      const url = await uploadToCloudinary(compressed, setProgress);
       onUpload(url);
+      setSuccess(true);
       addToast("✅ Imagen subida.", "success");
-    } catch { addToast("❌ Error al subir. Usá una URL.", "error"); setPreview(null); }
-    finally { setUploading(false); }
+    } catch (err) {
+      console.error(err);
+      addToast("❌ Error al subir.", "error");
+      reset();
+    } finally { setUploading(false); }
   };
 
   return (
-    <div className="image-upload-container">
-      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFile} style={{ display: "none" }} />
-      <div className="image-upload-dropzone" onClick={() => fileRef.current?.click()}>
-        {preview
-          ? <img src={preview} alt="Preview" className="image-upload-preview" />
-          : <div className="image-upload-placeholder">
-              <span className="image-upload-icon">🖼️</span>
-              <span>{uploading ? "Subiendo..." : "Elegir imagen del dispositivo"}</span>
-              <small style={{ opacity: .6, fontSize: ".72rem" }}>JPG, PNG, WebP · máx 5 MB</small>
-            </div>}
-      </div>
-      {uploading && <div className="upload-progress-bar"><div className="upload-progress-fill" /></div>}
+    <div className="img-uploader">
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} style={{ display: "none" }} />
+      {!preview ? (
+        <div className="img-uploader-dropzone" onClick={() => fileRef.current?.click()}>
+          <span className="img-uploader-dropzone-icon">📷</span>
+          <span className="img-uploader-dropzone-label">Subir imagen del producto</span>
+          <small className="img-uploader-dropzone-hint">JPG, PNG, WebP · máx 6 MB · se comprime a 800×800px</small>
+          <small className="img-uploader-dropzone-hint" style={{ color: "var(--accent-yellow)" }}>☁️ Vía Cloudinary (gratis)</small>
+        </div>
+      ) : (
+        <div className="img-uploader-preview-area">
+          <div className={`img-uploader-preview-wrap ${success ? "upload-success" : ""}`}>
+            <img src={preview} alt="Preview" className="img-uploader-preview" />
+            {uploading && (
+              <div className="img-uploader-overlay">
+                <div className="img-uploader-spinner" />
+                <span className="img-uploader-pct">{progress}%</span>
+              </div>
+            )}
+            {success && !uploading && <div className="img-uploader-success-overlay"><div className="img-uploader-check">✓</div></div>}
+          </div>
+          {filename && <p className="img-uploader-filename">{filename}</p>}
+          <div className="img-uploader-preview-actions">
+            <button type="button" className="img-uploader-btn-remove img-uploader-btn-change" onClick={() => fileRef.current?.click()} disabled={uploading}>Cambiar</button>
+            <button type="button" className="img-uploader-btn-remove" onClick={reset} disabled={uploading}>Quitar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -448,13 +521,22 @@ function RestauranteApp() {
   return (
     <>
       <ToastContainer toasts={toasts} />
-      <button
-        className="btn-theme-toggle"
-        onClick={() => setTema(p => p === "light" ? "dark" : p === "dark" ? "seleccion" : "light")}
-        title={tema === "light" ? "Modo oscuro" : tema === "dark" ? "Modo selección" : "Modo claro"}
-      >
-        {tema === "light" ? "🌙" : tema === "dark" ? "⭐" : "☀️"}
-      </button>
+      {vistaActiva === "menu" && (
+        <div className="btn-top-controls">
+          <button
+            className="btn-theme-toggle"
+            onClick={() => setTema(p => p === "light" ? "dark" : p === "dark" ? "seleccion" : "light")}
+            title="Cambiar tema"
+          >
+            {tema === "light" ? "☀️" : tema === "dark" ? "🌙" : "⭐"}
+          </button>
+          {esAdmin && (
+            <button className="btn-cocina-quick" onClick={() => cambiarVista("cocina")} title="Ir a Cocina">
+              👨‍🍳
+            </button>
+          )}
+        </div>
+      )}
 
       <Suspense fallback={null}>
         {vistaActiva === "cocina"     && esAdmin && <CocinaAdmin  slug={slug} addToast={addToast} alCerrar={() => cambiarVista("menu")} />}
@@ -539,7 +621,7 @@ function RestauranteApp() {
                 <h3 style={{ color: "var(--accent-yellow)", marginBottom: "4px" }}>+ Agregar Producto</h3>
                 <input name="nombre"   placeholder="Nombre"  required maxLength={MAX_NOMBRE} className="input-base" />
                 <input name="precio"   type="number" min="1" max="999999" step="0.01" placeholder="Precio" required className="input-base" />
-                <ImageUpload onUpload={url => setFotoProducto(url)} addToast={addToast} storagePath={`comercios/${slug}/productos`} />
+                <ImageUpload onUpload={url => setFotoProducto(url)} addToast={addToast} initialUrl={fotoProducto} />
                 <input name="foto" placeholder="O pegá URL de imagen" className="input-base" value={fotoProducto} onChange={e => setFotoProducto(e.target.value)} />
                 <select name="categoria" className="input-base">
                   {CATEGORIAS.filter(c => c !== "todos").map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
