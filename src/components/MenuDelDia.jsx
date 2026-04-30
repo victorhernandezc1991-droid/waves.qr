@@ -37,13 +37,11 @@ export default function MenuDelDia({ slug, productos, menuDiaIds, addToast, alCe
   const disponibles = productos.filter(p => p.disponible !== false);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-body)", padding: "24px" }}>
+    <div className="menu-dia-container">
       <div className="menu-dia-header">
+        <button className="btn-cerrar-vista" onClick={alCerrar}>← Volver</button>
         <h2 className="menu-dia-title">🔥 Menú del Día</h2>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <span className="menu-dia-counter">{seleccionados.size}/{MAX_ITEMS}</span>
-          <button className="btn-cerrar-vista" onClick={alCerrar}>← Volver</button>
-        </div>
+        <span className="menu-dia-counter">{seleccionados.size}/{MAX_ITEMS}</span>
       </div>
       <p className="menu-dia-hint">Tocá los platos que querés destacar hoy. Se mostrarán en el carrusel principal.</p>
       <div className="menu-dia-grid">
