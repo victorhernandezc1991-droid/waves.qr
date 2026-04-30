@@ -489,10 +489,111 @@ body {
 .confirmacion-delivery{margin:8px 0;line-height:1.5;font-size:.92rem}
 .confirmacion-delivery p{margin:2px 0}
 
-/* Comanda de delivery (cocina): borde naranja para distinguir */
-.comanda-delivery{border:2px solid rgba(255,149,0,.5)}
-.comanda-delivery-info{background:rgba(255,149,0,.08);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:.84rem;line-height:1.5}
+/* ══════════════════════════════════════════════════════════════
+   COCINA — vista admin de comandas
+   ══════════════════════════════════════════════════════════════ */
+.cocina-container{min-height:100vh;background:var(--bg-body);padding:0 0 40px;color:var(--text-main)}
+.cocina-top-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--bg-color);border-bottom:1px solid var(--border-subtle);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.cocina-title{font-size:1.4rem;font-weight:900;letter-spacing:.5px;color:var(--text-main);margin:0}
+.btn-cerrar-vista{padding:8px 16px;background:linear-gradient(135deg,var(--accent-red),#c0392b);color:#fff;border:none;border-radius:999px;font-weight:700;font-size:.88rem;cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition);font-family:inherit}
+.btn-cerrar-vista:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(255,59,59,.4)}
+.btn-cerrar-vista:active{transform:scale(.97)}
+.btn-sound-toggle{width:42px;height:42px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-main);font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform var(--transition),background var(--transition)}
+.btn-sound-toggle.off{opacity:.55;background:var(--bg-deep)}
+.btn-sound-toggle:hover{transform:scale(1.08);background:var(--bg-elevated)}
+
+/* Stats KPI */
+.cocina-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:16px;}
+.cocina-stat{background:var(--card-bg);border:1px solid var(--border-subtle);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;transition:transform .25s ease,border-color .25s ease;position:relative;overflow:hidden}
+.cocina-stat:hover{transform:translateY(-2px);border-color:var(--border-light)}
+.cocina-stat-num{font-size:1.6rem;font-weight:900;color:var(--text-main);line-height:1.1}
+.cocina-stat-label{font-size:.72rem;color:var(--text-muted);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.cocina-stat-pendientes::before,.cocina-stat-preparando::before,.cocina-stat-listos::before,.cocina-stat-ventas::before,.cocina-stat-promedio::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%}
+.cocina-stat-pendientes::before{background:#ff950a}
+.cocina-stat-pendientes .cocina-stat-num{color:#ff950a}
+.cocina-stat-preparando::before{background:var(--accent-blue)}
+.cocina-stat-preparando .cocina-stat-num{color:var(--accent-blue)}
+.cocina-stat-listos::before{background:var(--accent-green)}
+.cocina-stat-listos .cocina-stat-num{color:var(--accent-green)}
+.cocina-stat-ventas::before{background:var(--accent-yellow)}
+.cocina-stat-ventas .cocina-stat-num{color:var(--accent-yellow)}
+.cocina-stat-promedio::before{background:var(--text-muted)}
+
+/* Llamadas mozo */
+.llamadas-mozo-panel{margin:0 16px 16px;padding:14px 16px;background:linear-gradient(135deg,rgba(255,149,0,.15),rgba(255,149,0,.05));border:1px solid rgba(255,149,0,.4);border-radius:16px;animation:llamadaPulse 2s ease-in-out infinite}
+@keyframes llamadaPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,149,0,.3)}50%{box-shadow:0 0 0 8px rgba(255,149,0,0)}}
+.llamadas-mozo-panel h3{font-size:.95rem;font-weight:800;color:#ff950a;margin:0 0 10px;letter-spacing:.3px}
+.llamadas-grid{display:flex;flex-wrap:wrap;gap:8px}
+.llamada-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:999px;font-size:.85rem}
+.llamada-mesa{font-weight:700;color:var(--text-main)}
+.llamada-hora{font-size:.75rem;color:var(--text-dim)}
+.btn-atender{background:var(--accent-green);color:#fff;border:none;border-radius:999px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;transition:filter var(--transition-fast)}
+.btn-atender:hover{filter:brightness(1.1)}
+
+/* Filtros */
+.cocina-filtros{display:flex;gap:8px;padding:0 16px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cocina-filtros::-webkit-scrollbar{height:0}
+.cocina-filtro-btn{flex:0 0 auto;padding:8px 16px;background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border-subtle);border-radius:999px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all var(--transition-fast);white-space:nowrap}
+.cocina-filtro-btn:hover{background:var(--bg-elevated);color:var(--text-main)}
+.cocina-filtro-btn.activo{background:var(--accent-yellow);color:#000;border-color:var(--accent-yellow);box-shadow:0 0 16px var(--accent-yellow-glow);font-weight:800}
+
+/* Grid de comandas */
+.cocina-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:0 16px}
+.cocina-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text-dim);text-align:center}
+.cocina-empty-icon{font-size:3.5rem;margin-bottom:12px;opacity:.6}
+.cocina-empty-text{font-size:1rem;font-weight:500}
+
+/* Comanda card */
+.comanda-card{background:var(--card-bg);border:1px solid var(--border-subtle);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;animation:comandaSlideIn .35s cubic-bezier(.16,1,.3,1) both;position:relative;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.comanda-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+@keyframes comandaSlideIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.comanda-pendiente{border-left:5px solid #ff950a;animation:comandaSlideIn .35s cubic-bezier(.16,1,.3,1) both,comandaPendientePulse 2.4s ease-in-out infinite}
+@keyframes comandaPendientePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,149,0,.3)}50%{box-shadow:0 0 0 6px rgba(255,149,0,0)}}
+.comanda-preparando{border-left:5px solid var(--accent-blue)}
+.comanda-finalizado{border-left:5px solid var(--accent-green);opacity:.85}
+.comanda-delivery{border-top:3px solid #ff950a}
+
+/* Urgencia visual por tiempo */
+.comanda-urgencia-high.comanda-pendiente,
+.comanda-urgencia-high.comanda-preparando{border-left-color:#ff3b3b}
+
+.comanda-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.comanda-header-left{display:flex;flex-direction:column;gap:2px}
+.comanda-mesa{font-size:1.15rem;font-weight:900;color:var(--text-main);letter-spacing:.4px;margin:0;line-height:1.1}
+.comanda-orden{font-size:.72rem;color:var(--text-dim);font-weight:600;letter-spacing:.4px}
+.comanda-badge{font-size:.68rem;font-weight:800;padding:4px 10px;border-radius:999px;letter-spacing:.5px;white-space:nowrap}
+.comanda-badge-pendiente{background:rgba(255,149,0,.2);color:#ff950a;border:1px solid rgba(255,149,0,.3)}
+.comanda-badge-preparando{background:var(--accent-blue-glow);color:var(--accent-blue);border:1px solid rgba(43,127,255,.3)}
+.comanda-badge-finalizado{background:rgba(52,199,89,.2);color:var(--accent-green);border:1px solid rgba(52,199,89,.3)}
+
+.comanda-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.78rem}
+.comanda-tiempo{font-weight:700;padding:3px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+.comanda-tiempo-low{background:rgba(52,199,89,.15);color:var(--accent-green)}
+.comanda-tiempo-med{background:rgba(255,149,0,.15);color:#ff950a}
+.comanda-tiempo-high{background:rgba(255,59,59,.18);color:#ff3b3b;animation:tiempoBlink 1.6s ease-in-out infinite}
+@keyframes tiempoBlink{0%,100%{opacity:1}50%{opacity:.55}}
+.comanda-pago{color:var(--text-muted);font-size:.78rem;text-transform:capitalize}
+.comanda-total-mini{margin-left:auto;font-size:.85rem;font-weight:800;color:var(--accent-yellow)}
+
+.comanda-delivery-info{background:rgba(255,149,0,.08);border-radius:10px;padding:8px 10px;font-size:.82rem;line-height:1.45}
 .comanda-delivery-info p{margin:1px 0;color:var(--text-main)}
+.nota-cocina{background:rgba(255,213,0,.1);border-left:3px solid #ffd500;padding:6px 10px;border-radius:6px;font-size:.82rem;color:var(--text-main);font-weight:500}
+
+.comanda-lista{list-style:none;padding:8px 0 4px;margin:0;display:flex;flex-direction:column;gap:5px;border-top:1px dashed var(--border-subtle)}
+.comanda-lista li{display:flex;align-items:baseline;gap:8px;font-size:.96rem;color:var(--text-main)}
+.comanda-item-cantidad{font-weight:900;color:var(--accent-yellow);font-size:1.05rem;min-width:30px}
+.comanda-item-nombre{font-weight:500}
+
+.comanda-btns{display:flex;gap:6px;margin-top:6px}
+.btn-preparar,.btn-listo{flex:1;padding:11px;border:none;border-radius:10px;font-weight:800;font-size:.88rem;cursor:pointer;font-family:inherit;letter-spacing:.4px;transition:transform var(--transition-fast),box-shadow var(--transition),filter var(--transition-fast)}
+.btn-preparar{background:linear-gradient(135deg,var(--accent-blue),#1a6ae0);color:#fff}
+.btn-preparar:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(43,127,255,.4)}
+.btn-listo{background:linear-gradient(135deg,var(--accent-green),#1f8d44);color:#fff}
+.btn-listo:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(52,199,89,.4)}
+.btn-anular{flex:0 0 42px;padding:11px;background:transparent;color:var(--accent-red);border:1px solid rgba(255,59,59,.4);border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit;font-size:.95rem;transition:background var(--transition-fast)}
+.btn-anular:hover{background:rgba(255,59,59,.12)}
+.btn-preparar:active,.btn-listo:active,.btn-anular:active{transform:scale(.97)}
 
 /* Banner de "mesa no identificada" */
 .banner-mesa-invalida{
