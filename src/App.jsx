@@ -8,6 +8,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import JsBarcode from "jsbarcode";
+import { InstallPrompt, UpdateBanner } from "./components/PWAControls.jsx";
 import "./App.css";
 
 // Componentes admin (lazy — solo se cargan cuando el usuario admin los abre)
@@ -568,6 +569,8 @@ function RestauranteApp() {
   return (
     <>
       <ToastContainer toasts={toasts} />
+      <UpdateBanner />
+      <InstallPrompt />
       {vistaActiva === "menu" && (
         <div className="btn-top-controls">
           <button

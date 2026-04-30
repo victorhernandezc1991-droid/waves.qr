@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { db } from "../firebaseConfig";
+import { db, auth } from "../firebaseConfig";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { registrarFCMToken, suscribirMensajesForeground } from "../lib/fcm.js";
 
 // ─── Helper: tiempo transcurrido desde un timestamp ──────────────────────────
 function useTickPerSecond() {
@@ -154,11 +155,20 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
     audioRef.current.preload = "auto";
   }, []);
 
+  // Registrar token FCM cuando el admin entra a Cocina, así el backend
+  // puede mandarle push cuando haya un nuevo pedido aunque la app esté cerrada.
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+    const user = auth.currentUser;
+    if (!user) return;
+    registrarFCMToken({ slug, user, addToast });
+    let unsub = () => {};
+    suscribirMensajesForeground(payload => {
+      // Cuando llega un mensaje en foreground reproducimos el sonido
+      if (soundOn) audioRef.current?.play().catch(() => {});
+    }).then(fn => { unsub = fn; });
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "comercios", slug, "pedidos"), snap => {

@@ -762,6 +762,72 @@ body {
 .comanda-footer{display:flex;justify-content:space-between;font-size:.85rem;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border-subtle)}
 .comanda-total{font-weight:800;color:var(--accent-yellow)}
 
+/* Charts en cierre de caja */
+.cierre-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:0 16px 16px}
+.chart-card{background:var(--card-bg);border:1px solid var(--border-subtle);border-radius:16px;padding:16px;color:var(--text-main);transition:border-color .2s ease}
+.chart-card:hover{border-color:var(--border-light)}
+.chart-header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px}
+.chart-header h4{font-size:.92rem;font-weight:800;margin:0;letter-spacing:.3px;color:var(--text-main)}
+.chart-meta{font-size:.7rem;color:var(--text-dim);font-weight:600}
+.chart-svg{width:100%;height:140px;color:var(--accent-yellow);display:block}
+.chart-bar{transition:opacity .2s ease;cursor:default}
+.chart-bar:hover{opacity:.75}
+.chart-x-labels{display:flex;justify-content:space-between;font-size:.62rem;color:var(--text-dim);margin-top:4px;font-variant-numeric:tabular-nums}
+.chart-x-label{text-align:center;min-width:0}
+
+/* Top productos */
+.topprod-list{display:flex;flex-direction:column;gap:10px}
+.topprod-row{display:flex;gap:10px;align-items:center}
+.topprod-rank{flex:0 0 28px;font-size:.78rem;font-weight:900;color:var(--accent-yellow);text-align:center}
+.topprod-content{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.topprod-line{display:flex;justify-content:space-between;gap:8px;font-size:.85rem}
+.topprod-nombre{color:var(--text-main);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topprod-stats{color:var(--text-muted);font-size:.78rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.topprod-stats strong{color:var(--text-main)}
+.topprod-bar-wrap{height:6px;background:var(--bg-deep);border-radius:999px;overflow:hidden}
+.topprod-bar{height:100%;background:linear-gradient(90deg,var(--accent-yellow),#c5d600);border-radius:999px;transition:width .5s cubic-bezier(.16,1,.3,1)}
+
+/* Acciones de export */
+.cierre-acciones-export{display:flex;gap:10px;margin:14px 16px}
+.btn-export-csv,.btn-export-pdf{flex:1;padding:12px;background:var(--bg-surface);color:var(--text-main);border:1px solid var(--border-subtle);border-radius:12px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background var(--transition-fast),border-color var(--transition-fast)}
+.btn-export-csv:hover:not(:disabled),.btn-export-pdf:hover:not(:disabled){background:var(--bg-elevated);border-color:var(--border-light)}
+.btn-export-csv:disabled,.btn-export-pdf:disabled{opacity:.4;cursor:not-allowed}
+.btn-export-pdf{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue)}
+.btn-export-pdf:hover:not(:disabled){background:#1a6ae0;border-color:#1a6ae0}
+
+/* ── Print stylesheet — solo cuando body.printing-cierre ── */
+@media print {
+  body.printing-cierre {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body.printing-cierre .btn-top-controls,
+  body.printing-cierre .cocina-top-bar,
+  body.printing-cierre .cierre-header,
+  body.printing-cierre .cierre-fecha,
+  body.printing-cierre .cierre-charts,
+  body.printing-cierre .cierre-historial,
+  body.printing-cierre .cierre-acciones-export,
+  body.printing-cierre .btn-guardar-cierre,
+  body.printing-cierre .toast-container { display: none !important; }
+  body.printing-cierre .cierre-caja-container { padding: 16px; }
+  body.printing-cierre .cierre-total-card { background: #fff !important; border: 2px solid #000 !important; }
+  body.printing-cierre .cierre-total-monto { color: #000 !important; }
+  body.printing-cierre .cierre-total-label { color: #444 !important; }
+  body.printing-cierre .cierre-desglose,
+  body.printing-cierre .cierre-metricas {
+    background: #fff !important; border: 1px solid #ccc !important; box-shadow: none !important;
+  }
+  body.printing-cierre .desglose-item,
+  body.printing-cierre .metrica-item { background: #fff !important; border: 1px solid #eee !important; color: #000 !important; }
+  body.printing-cierre h1, body.printing-cierre h3 { color: #000 !important; }
+  body.printing-cierre .metrica-valor, body.printing-cierre .desglose-monto { color: #000 !important; }
+  body.printing-cierre::before {
+    content: "Cierre de Caja";
+    display: block; font-size: 1.4rem; font-weight: 900; padding: 0 16px 8px; border-bottom: 2px solid #000; margin-bottom: 16px;
+  }
+}
+
 /* Botón guardar cierre */
 .btn-guardar-cierre{display:block;width:calc(100% - 32px);margin:20px 16px 0;padding:16px;background:linear-gradient(135deg,var(--accent-yellow),#c5d600);color:#000;border:none;border-radius:14px;font-size:1rem;font-weight:900;font-family:inherit;letter-spacing:.5px;cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition)}
 .btn-guardar-cierre:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--accent-yellow-glow)}
@@ -883,6 +949,31 @@ body {
 .btn-guardar-menu-dia:disabled{opacity:.6;cursor:not-allowed}
 .btn-limpiar-menu-dia{padding:13px 18px;background:transparent;color:var(--accent-red);border:1px solid rgba(255,59,59,.4);border-radius:12px;font-weight:700;font-size:.85rem;cursor:pointer;font-family:inherit;transition:background var(--transition-fast)}
 .btn-limpiar-menu-dia:hover{background:rgba(255,59,59,.1)}
+
+/* ══════════════════════════════════════════════════════════════
+   PWA — banners de update e install
+   ══════════════════════════════════════════════════════════════ */
+.pwa-update-banner,.pwa-install-prompt{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:18px; z-index:1100;
+  display:flex; align-items:center; gap:12px;
+  padding:10px 14px;
+  background:var(--bg-elevated); color:var(--text-main);
+  border:1px solid var(--border-light); border-radius:14px;
+  box-shadow:var(--shadow-lg);
+  font-size:.88rem; font-weight:600;
+  max-width:calc(100% - 32px);
+  animation:slideUpBanner .35s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes slideUpBanner{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.pwa-update-banner button:not(.pwa-update-dismiss),
+.pwa-install-prompt button:not(.pwa-install-dismiss){
+  background:var(--accent-yellow); color:#000; border:none;
+  padding:6px 14px; border-radius:999px; font-weight:800; font-size:.82rem; cursor:pointer; font-family:inherit;
+}
+.pwa-update-dismiss,.pwa-install-dismiss{
+  background:transparent; color:var(--text-dim); border:none; padding:4px 8px; cursor:pointer; font-size:.95rem;
+}
 
 /* ══════════════════════════════════════════════════════════════
    ANIMACIONES GLOBALES

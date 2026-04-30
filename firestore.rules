@@ -90,6 +90,13 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isOwner(slug);
       }
+
+      // ── Tokens FCM ──
+      // Solo el owner del comercio puede registrar/ver/borrar sus tokens.
+      // El Cloud Function los lee con privilegios admin (no pasa por estas rules).
+      match /fcmTokens/{tokenId} {
+        allow read, write: if isOwner(slug);
+      }
     }
   }
 }

@@ -42,3 +42,12 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Functions deps
+functions/node_modules/
+
+# PWA dev artifacts
+dev-dist/
+
+# Firebase deploy cache
+.firebase/

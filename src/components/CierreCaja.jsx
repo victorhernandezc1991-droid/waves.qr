@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
 import { collection, onSnapshot, doc, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "firebase/firestore";
 import { filtrarPorTurno } from "../lib/utils";
+import { VentasPorHora, TopProductos } from "./CierreCharts.jsx";
+import { exportCierreCSV, printCierre } from "../lib/exportCierre.js";
 
 export default function CierreCaja({ slug, addToast, alCerrar }) {
   const [pedidos,  setPedidos]  = useState([]);
@@ -140,6 +142,36 @@ export default function CierreCaja({ slug, addToast, alCerrar }) {
               <div className="metrica-item anulaciones"><span className="metrica-valor">{anulados.length}</span><span className="metrica-label">Anulaciones</span></div>
               {montoAnulaciones > 0 && <div className="metrica-item anulaciones"><span className="metrica-valor">${montoAnulaciones.toLocaleString("es-AR")}</span><span className="metrica-label">$ Anulados</span></div>}
             </div>
+          </div>
+
+          {/* ── Charts ── */}
+          {finalizados.length > 0 && (
+            <div className="cierre-charts">
+              <VentasPorHora pedidos={finalizados} />
+              <TopProductos pedidos={finalizados} />
+            </div>
+          )}
+
+          {/* ── Acciones de exportación ── */}
+          <div className="cierre-acciones-export">
+            <button
+              className="btn-export-csv"
+              onClick={() => exportCierreCSV({
+                fecha: fechaStr, turno, totalVentas, desglose,
+                tickets, promedio, anulaciones: anulados.length, montoAnulaciones,
+                finalizados,
+              })}
+              disabled={finalizados.length === 0}
+            >
+              📄 Exportar CSV
+            </button>
+            <button
+              className="btn-export-pdf"
+              onClick={printCierre}
+              disabled={finalizados.length === 0}
+            >
+              🖨️ Imprimir / PDF
+            </button>
           </div>
 
           {cierresHoy.length > 0 && (
