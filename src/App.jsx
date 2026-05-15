@@ -645,7 +645,21 @@ function RestauranteApp() {
             aria-modal={menuAbierto}
             aria-hidden={!menuAbierto}
           >
-            <div className="drawer-header"><h2>{nombre}</h2><button className="drawer-close" onClick={() => setMenuAbierto(false)}>✕</button></div>
+            <div className="drawer-header">
+              <h2>
+                {(() => {
+                  const partes = (nombre || "").trim().split(/\s+/);
+                  if (partes.length < 2) return <span className="drawer-brand-first">{nombre}</span>;
+                  return (
+                    <>
+                      <span className="drawer-brand-first">{partes[0]}</span>{" "}
+                      <span className="drawer-brand-rest">{partes.slice(1).join(" ")}</span>
+                    </>
+                  );
+                })()}
+              </h2>
+              <button className="drawer-close" onClick={() => setMenuAbierto(false)} aria-label="Cerrar menú">✕</button>
+            </div>
             <div className="drawer-section">
               <p className="drawer-section-title">Categorías</p>
               {CATEGORIAS.map(c => (

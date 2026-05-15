@@ -91,11 +91,12 @@ body {
 .drawer-overlay.open{background:rgba(0,0,0,.6);pointer-events:auto;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .drawer-menu{position:fixed;top:0;left:-300px;width:280px;height:100vh;background:var(--bg-color);z-index:2000;display:flex;flex-direction:column;transition:left .35s cubic-bezier(.4,0,.2,1);box-shadow:5px 0 30px rgba(0,0,0,.5);border-right:1px solid var(--border-subtle);overflow-y:auto}
 .drawer-menu.open{left:0}
-.drawer-header{padding:24px 20px;background:var(--bg-elevated);border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center}
-.drawer-header h2{font-weight:900;font-size:1.3rem;letter-spacing:3px;text-transform:uppercase;margin:0;background:linear-gradient(135deg,#ff5a5a,#c0392b);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}
-[data-theme="dark"] .drawer-header h2{background:linear-gradient(135deg,#34c759,#1f8d44);-webkit-background-clip:text;background-clip:text}
-.drawer-close{background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text-main);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--transition-fast),border-color var(--transition-fast)}
-.drawer-close:hover{background:var(--bg-deep);border-color:var(--border-light)}
+.drawer-header{padding:24px 20px;background:linear-gradient(135deg,#1a1a2e,#0d0d18);border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center}
+.drawer-header h2{font-weight:900;font-size:1.3rem;letter-spacing:3px;text-transform:uppercase;margin:0;line-height:1.15}
+.drawer-brand-first{color:#fff}
+.drawer-brand-rest{color:#e63946;text-shadow:0 0 12px rgba(230,57,70,.35)}
+.drawer-close{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--transition-fast),border-color var(--transition-fast)}
+.drawer-close:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.35)}
 .drawer-section{padding:12px 0;border-bottom:1px solid var(--border-subtle)}
 .drawer-section-title{padding:6px 20px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim)}
 .drawer-item{display:flex;align-items:center;gap:10px;width:100%;padding:14px 20px;background:none;border:none;color:var(--text-muted);font-size:.95rem;font-weight:500;font-family:inherit;cursor:pointer;text-align:left;transition:all var(--transition)}
