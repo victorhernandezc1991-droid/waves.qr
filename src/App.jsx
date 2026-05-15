@@ -622,12 +622,6 @@ function RestauranteApp() {
                 style={{ borderRadius: user && tema !== "seleccion" ? "50%" : (tema === "seleccion" ? "0" : "50%") }}
               />
             </button>
-            <h1 className="header-title" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span className={tema === "seleccion" ? "waves-seleccion-text" : ""}>{nombre}</span>
-              {tema === "seleccion" && (
-                <span style={{ fontSize: "0.5em", marginLeft: "6px", letterSpacing: "1px", color: "var(--accent-yellow)", textShadow: "var(--shadow-glow-yellow)" }}>⭐⭐⭐</span>
-              )}
-            </h1>
             {user && <p className="header-username">{user.displayName}</p>}
           </header>
 

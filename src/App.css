@@ -68,8 +68,8 @@ body {
 .toast-warning{background:rgba(255,159,10,.9);color:#fff}.toast-info{background:rgba(43,127,255,.9);color:#fff}
 
 /* ── HEADER ── */
-.header{display:flex;flex-direction:column;align-items:center;padding:28px 16px 18px;gap:8px}
-.header-icon{width:88px;height:88px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px var(--border-subtle),var(--shadow-md);transition:transform var(--transition),box-shadow var(--transition);cursor:pointer}
+.header{display:flex;flex-direction:column;align-items:center;padding:32px 16px 24px;gap:10px}
+.header-icon{width:160px;height:160px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px var(--border-subtle),var(--shadow-md);transition:transform var(--transition),box-shadow var(--transition);cursor:pointer}
 .header-icon:hover{transform:scale(1.06);box-shadow:0 0 0 3px var(--accent-blue-glow),var(--shadow-glow-blue)}
 .header-icon img{width:100%;height:100%;object-fit:cover}
 .header-title{font-size:1.8rem;letter-spacing:6px;text-transform:uppercase;font-weight:900;background:linear-gradient(135deg,var(--accent-blue),#64b5f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -628,6 +628,8 @@ body {
 .img-uploader-preview-area{display:flex;flex-direction:column;gap:10px}
 .img-uploader-preview-wrap{position:relative;width:100%;aspect-ratio:1/1;border-radius:var(--border-radius-sm);overflow:hidden;border:2px solid var(--border-subtle);transition:border-color .4s ease,box-shadow .4s ease}
 .img-uploader-preview-wrap.upload-success{border-color:var(--accent-green);box-shadow:0 0 20px rgba(52,199,89,.25)}
+.img-uploader-preview-wrap.img-uploader-preview-circular{border-radius:50%;max-width:200px;margin:0 auto}
+.img-uploader-preview-wrap.img-uploader-preview-circular img{border-radius:50%}
 .img-uploader-preview{width:100%;height:100%;object-fit:cover;display:block}
 .img-uploader-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 .img-uploader-spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--accent-blue);border-radius:50%;animation:uploaderSpin .8s linear infinite}
