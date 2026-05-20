@@ -35,6 +35,11 @@ node_modules/
 .env
 .env.local
 .env.production
+.env.waves-qr1
+.env.waves-app-oficial
+
+# Service accounts Firebase Admin (para scripts de migración)
+scripts/sa-*.json
 
 # Sistema operativo
 .DS_Store

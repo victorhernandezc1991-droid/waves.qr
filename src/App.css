@@ -341,8 +341,7 @@ body {
 .input-notas{width:100%;padding:12px 16px;border-radius:var(--border-radius-sm);border:1px solid var(--border-subtle);background:var(--bg-input);color:var(--text-main);font-size:.9rem;font-family:inherit;outline:none;resize:vertical;min-height:80px;transition:border-color var(--transition);margin-bottom:4px}
 .input-notas:focus{border-color:var(--accent-blue)}
 .contador-notas{display:block;text-align:right;font-size:.72rem;color:var(--text-dim);margin-bottom:10px}
-.input-mesa{width:100%;padding:12px 16px;border-radius:var(--border-radius-sm);border:1px solid var(--border-subtle);background:var(--bg-input);color:var(--text-main);font-size:.9rem;font-family:inherit;outline:none;transition:border-color var(--transition);margin-bottom:14px}
-.input-mesa:focus{border-color:var(--accent-blue)}
+/* (input-mesa eliminado — la app ya no usa mesa) */
 
 /* ── Método de pago ── */
 .pago-selector{margin-bottom:14px}
@@ -471,25 +470,27 @@ body {
 .ticket-barcode-wrap svg{max-width:90%;height:auto}
 .ticket-orden-num{font-family:'Courier New', monospace;font-size:.85rem;letter-spacing:.1em;color:#1a1a1a;margin:0}
 
-/* Banner de "local cerrado" — modo delivery */
-.banner-local-cerrado{
-  background:linear-gradient(135deg, rgba(255,149,0,.15), rgba(255,90,40,.15));
-  border:1px solid rgba(255,149,0,.4);
-  color:#ffb84d;
-  padding:14px;
-  margin:8px 12px 12px;
-  border-radius:14px;
-  font-size:.9rem;
-  text-align:center;
-  line-height:1.45;
-}
+/* Form del cliente (nombre/tel/dirección) dentro del carrito */
+.cliente-form{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 
-/* Form de delivery dentro del carrito */
-.delivery-form{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-
-/* Confirmación: bloque de datos delivery */
+/* Confirmación: bloque de datos del cliente */
 .confirmacion-delivery{margin:8px 0;line-height:1.5;font-size:.92rem}
 .confirmacion-delivery p{margin:2px 0}
+
+/* Botón "Cambiar tipo de pedido" en el header */
+.btn-cambiar-tipo{
+  margin-top:6px;
+  padding:5px 14px;
+  background:var(--bg-surface);
+  color:var(--text-muted);
+  border:1px solid var(--border-subtle);
+  border-radius:999px;
+  font-size:.78rem;
+  font-family:inherit;
+  cursor:pointer;
+  transition:background var(--transition-fast),color var(--transition-fast),border-color var(--transition-fast);
+}
+.btn-cambiar-tipo:hover{background:var(--bg-elevated);color:var(--text-main);border-color:var(--border-light)}
 
 /* ══════════════════════════════════════════════════════════════
    COCINA — vista admin de comandas
@@ -597,16 +598,130 @@ body {
 .btn-anular:hover{background:rgba(255,59,59,.12)}
 .btn-preparar:active,.btn-listo:active,.btn-anular:active{transform:scale(.97)}
 
-/* Banner de "mesa no identificada" */
-.banner-mesa-invalida{
-  background:rgba(255,59,59,.1);
-  border:1px solid rgba(255,59,59,.3);
-  color:var(--accent-red);
-  padding:10px 14px;
-  margin:8px 12px 12px;
-  border-radius:12px;
-  font-size:.88rem;
+/* ══════════════════════════════════════════════════════════════
+   SELECTOR DE TIPO DE PEDIDO — primera pantalla del cliente
+   ══════════════════════════════════════════════════════════════ */
+.selector-tipo-container{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:40px 20px;
+  background:var(--bg-body);
+  color:var(--text-main);
   text-align:center;
+}
+.selector-tipo-header{display:flex;flex-direction:column;align-items:center;gap:16px;margin-bottom:32px}
+.selector-tipo-logo{
+  width:140px;height:140px;border-radius:50%;overflow:hidden;
+  box-shadow:0 0 0 3px var(--border-subtle), var(--shadow-md);
+}
+.selector-tipo-logo img{width:100%;height:100%;object-fit:cover}
+.selector-tipo-nombre{
+  font-size:1.6rem;font-weight:900;letter-spacing:3px;text-transform:uppercase;
+  margin:0;line-height:1.15;
+}
+.selector-tipo-pregunta{
+  font-size:1rem;color:var(--text-muted);margin:0 0 24px;font-weight:500;
+}
+.selector-tipo-opciones{display:flex;flex-direction:column;gap:14px;width:100%;max-width:340px}
+.selector-tipo-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:24px 20px;border-radius:18px;border:2px solid var(--border-subtle);
+  background:var(--card-bg);color:var(--text-main);
+  font-family:inherit;cursor:pointer;
+  transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.selector-tipo-btn:hover{transform:translateY(-2px);border-color:var(--border-light);box-shadow:var(--shadow-md)}
+.selector-tipo-btn:active{transform:scale(.98)}
+.selector-tipo-btn-icon{font-size:2.4rem;line-height:1}
+.selector-tipo-btn-titulo{font-size:1.05rem;font-weight:800;letter-spacing:.3px}
+.selector-tipo-btn-sub{font-size:.78rem;color:var(--text-dim);font-weight:500}
+.selector-tipo-btn-delivery:hover{border-color:#ff950a;box-shadow:0 8px 24px rgba(255,149,0,.2)}
+.selector-tipo-btn-presencial:hover{border-color:var(--accent-blue);box-shadow:0 8px 24px var(--accent-blue-glow)}
+
+/* "Volvemos pronto" — estado CERRADO */
+.selector-tipo-cerrado{
+  max-width:360px;
+  padding:32px 24px;
+  background:var(--card-bg);
+  border:1px solid var(--border-subtle);
+  border-radius:18px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.selector-tipo-cerrado-icon{font-size:3rem;line-height:1}
+.selector-tipo-cerrado-titulo{margin:0;font-size:1.4rem;font-weight:900;color:var(--text-main)}
+.selector-tipo-cerrado-texto{margin:0;color:var(--text-muted);line-height:1.5}
+.selector-tipo-cerrado-horarios{margin:0;color:var(--text-main);font-size:.95rem}
+.selector-tipo-cerrado-tel{margin:0;color:var(--accent-blue);font-weight:700}
+
+/* ══════════════════════════════════════════════════════════════
+   PEDIDO MANUAL (admin) — modal
+   ══════════════════════════════════════════════════════════════ */
+.pedido-manual-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.7);
+  z-index:2500;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:0;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+.pedido-manual-card{
+  width:100%;max-width:520px;height:100vh;
+  background:var(--bg-body);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.pedido-manual-header{
+  position:sticky;top:0;z-index:5;
+  padding:14px 16px;
+  background:var(--bg-color);
+  border-bottom:1px solid var(--border-subtle);
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+.pedido-manual-header h2{margin:0;font-size:1.15rem;font-weight:900;color:var(--accent-yellow)}
+.pedido-manual-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.pedido-manual-section{
+  padding:14px;
+  background:var(--card-bg);
+  border:1px solid var(--border-subtle);
+  border-radius:14px;
+}
+.pedido-manual-section h3{margin:0 0 10px;font-size:.92rem;font-weight:800;color:var(--accent-yellow);letter-spacing:.3px}
+.pedido-manual-section .input-base{margin-bottom:8px}
+.pedido-manual-section .input-base:last-of-type{margin-bottom:0}
+
+.pedido-manual-cat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.pedido-manual-cat-tab{
+  padding:6px 12px;
+  background:var(--bg-surface);color:var(--text-muted);
+  border:1px solid var(--border-subtle);border-radius:999px;
+  font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;
+  transition:all var(--transition-fast);
+}
+.pedido-manual-cat-tab:hover{background:var(--bg-elevated);color:var(--text-main)}
+.pedido-manual-cat-tab.activo{background:var(--accent-yellow);color:#000;border-color:var(--accent-yellow);font-weight:800}
+
+.pedido-manual-productos{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:50vh;overflow-y:auto}
+.pedido-manual-producto{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;
+  background:var(--bg-surface);
+  border:1px solid var(--border-subtle);
+  border-radius:10px;
+}
+.pedido-manual-producto-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pedido-manual-producto-nombre{font-weight:700;font-size:.92rem;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pedido-manual-producto-precio{font-size:.78rem;color:var(--accent-yellow);font-weight:800}
+.pedido-manual-producto-controls{display:flex;align-items:center;gap:6px}
+.pedido-manual-add{background:var(--accent-yellow)!important;color:#000!important;font-weight:900}
+
+.pedido-manual-footer{
+  position:sticky;bottom:0;z-index:5;
+  padding:12px 16px env(safe-area-inset-bottom);
+  background:var(--bg-color);
+  border-top:1px solid var(--border-subtle);
 }
 
 /* ══════════════════════════════════════════════════════════════

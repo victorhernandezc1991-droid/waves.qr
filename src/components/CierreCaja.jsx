@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
-import { collection, onSnapshot, doc, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "firebase/firestore";
 import { filtrarPorTurno } from "../lib/utils";
 import { VentasPorHora, TopProductos } from "./CierreCharts.jsx";
 import { exportCierreCSV, printCierre } from "../lib/exportCierre.js";
+import { etiquetaPedido } from "../lib/pedidos";
 
-export default function CierreCaja({ slug, addToast, alCerrar }) {
+export default function CierreCaja({ addToast, alCerrar }) {
   const [pedidos,  setPedidos]  = useState([]);
   const [cierres,  setCierres]  = useState([]);
   const [turno,    setTurno]    = useState(() => {
@@ -17,22 +18,22 @@ export default function CierreCaja({ slug, addToast, alCerrar }) {
   const [expandido, setExpandido] = useState(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "comercios", slug, "pedidos"), snap => {
+    const unsub = onSnapshot(collection(db, "pedidos"), snap => {
       setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
     return () => unsub();
-  }, [slug]);
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const q = query(collection(db, "comercios", slug, "cierresCaja"), orderBy("creadoEn", "desc"), limit(100));
+        const q = query(collection(db, "cierresCaja"), orderBy("creadoEn", "desc"), limit(100));
         const snap = await getDocs(q);
         setCierres(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error(e); }
     })();
-  }, [slug]);
+  }, []);
 
   const fechaStr      = fechaSeleccionada.toLocaleDateString("es-AR");
   const pedidosHoy    = pedidos.filter(p =>
@@ -64,11 +65,17 @@ export default function CierreCaja({ slug, addToast, alCerrar }) {
     if (finalizados.length === 0) return addToast("No hay ventas finalizadas.", "warning");
     if (!window.confirm(`¿Confirmar cierre por $${totalVentas.toLocaleString("es-AR")}?`)) return;
     try {
-      await addDoc(collection(db, "comercios", slug, "cierresCaja"), {
+      await addDoc(collection(db, "cierresCaja"), {
         fecha: fechaStr, turno, totalVentas, desglose,
         ticketsEmitidos: tickets, ticketPromedio: Math.round(promedio),
         anulaciones: anulados.length, montoAnulaciones,
-        pedidos: finalizados.map(p => ({ id: p.id, mesa: p.mesa, numeroOrden: p.numeroOrden, items: p.items, total: p.total, metodoPago: p.metodoPago, hora: p.hora })),
+        pedidos: finalizados.map(p => ({
+          id: p.id, tipo: p.tipo || null,
+          clienteInfo: p.clienteInfo || null,
+          mesa: p.mesa ?? null,  // legacy fallback
+          numeroOrden: p.numeroOrden,
+          items: p.items, total: p.total, metodoPago: p.metodoPago, hora: p.hora,
+        })),
         creadoEn: serverTimestamp(),
       });
       addToast("✅ Cierre guardado.", "success");
@@ -207,7 +214,7 @@ export default function CierreCaja({ slug, addToast, alCerrar }) {
                               {c.pedidos.map((p, i) => (
                                 <div key={i} className="comanda-item">
                                   <div className="comanda-header">
-                                    <span>🍽️ Mesa {p.mesa || "—"}</span>
+                                    <span>{etiquetaPedido(p)}</span>
                                     <span className="comanda-orden">#{p.numeroOrden}</span>
                                     <span className="comanda-hora">{p.hora}</span>
                                   </div>

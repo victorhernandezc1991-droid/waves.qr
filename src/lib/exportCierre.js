@@ -1,4 +1,5 @@
 // ─── Helpers de exportación de Cierre de Caja ─────────────────────────────────
+import { etiquetaPedido } from "./pedidos";
 
 function escapeCSV(value) {
   if (value === null || value === undefined) return "";
@@ -52,13 +53,12 @@ export function exportCierreCSV({ fecha, turno, totalVentas, desglose, tickets, 
 
   // Detalle de comandas
   lines.push("DETALLE DE COMANDAS");
-  lines.push(["Orden", "Mesa/Tipo", "Hora", "Método", "Items", "Total"].map(escapeCSV).join(SEP));
+  lines.push(["Orden", "Tipo / Cliente", "Hora", "Método", "Items", "Total"].map(escapeCSV).join(SEP));
   finalizados.forEach(p => {
     const itemsStr = (p.items || []).map(it => `${it.cantidad}x ${it.nombre}`).join(" | ");
-    const mesa = p.tipo === "delivery" ? "Delivery" : (p.mesa != null ? `Mesa ${p.mesa}` : "—");
     lines.push([
       p.numeroOrden || "",
-      mesa,
+      etiquetaPedido(p),
       p.hora || "",
       p.metodoPago || "",
       itemsStr,

@@ -5,7 +5,7 @@ import { doc, setDoc } from "firebase/firestore";
 const CAT_ICONS = { todos: "🍽️", hamburguesas: "🍔", pizzas: "🍕", pastas: "🍝", milanesas: "🥩", asado: "🥓", cafe: "☕", bebidas: "🥤", postres: "🍰" };
 const MAX_ITEMS = 8;
 
-export default function MenuDelDia({ slug, productos, menuDiaIds, addToast, alCerrar }) {
+export default function MenuDelDia({ productos, menuDiaIds, addToast, alCerrar }) {
   const [seleccionados, setSeleccionados] = useState(new Set(menuDiaIds));
   const [guardando, setGuardando]         = useState(false);
 
@@ -24,13 +24,13 @@ export default function MenuDelDia({ slug, productos, menuDiaIds, addToast, alCe
   const guardar = async () => {
     setGuardando(true);
     try {
-      await setDoc(doc(db, "comercios", slug, "config", "menuDelDia"), {
+      await setDoc(doc(db, "config", "menuDelDia"), {
         ids: [...seleccionados],
         actualizadoEn: new Date().toISOString(),
       });
       addToast("✅ Menú del Día actualizado.", "success");
       alCerrar();
-    } catch { addToast("❌ Error al guardar.", "error"); }
+    } catch (err) { console.error("[MenuDelDia]", err); addToast(err?.message || "❌ Error al guardar.", "error"); }
     finally { setGuardando(false); }
   };
 

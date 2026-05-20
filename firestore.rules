@@ -2,101 +2,75 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: ¿el request viene del owner del comercio identificado por slug?
-    function isOwner(slug) {
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isAdmin() {
       return request.auth != null
-        && request.auth.uid == get(/databases/$(database)/documents/comercios/$(slug)).data.ownerUid;
+        && exists(/databases/$(database)/documents/config/admin)
+        && request.auth.uid == get(/databases/$(database)/documents/config/admin).data.uid;
     }
 
-    match /comercios/{slug} {
-      // Lectura pública (clientes anónimos pueden ver el menú)
+    // ── Productos ────────────────────────────────────────────────────────────
+    // Lectura pública. Solo el admin crea/borra/edita. El cliente anónimo
+    // puede SOLO decrementar el campo stock dentro de una transacción de pedido.
+    match /productos/{docId} {
       allow read: if true;
-
-      // Solo el owner puede modificar su comercio. Crearlo requiere auth y se
-      // permite que el ownerUid del documento coincida con el uid de quien lo crea.
-      allow update, delete: if request.auth != null
-        && request.auth.uid == resource.data.ownerUid;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.ownerUid;
-
-      // ── Productos ──
-      // Lectura pública. Update permitido para clientes solo si decrementan stock
-      // (necesario para la transacción de creación de pedido). Resto = solo owner.
-      match /productos/{docId} {
-        allow read: if true;
-        allow update: if (
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
           && resource.data.stock != null
           && request.resource.data.stock is number
           && request.resource.data.stock <= resource.data.stock
           && request.resource.data.stock >= 0
-        ) || isOwner(slug);
-        allow create, delete: if isOwner(slug);
-      }
+        );
+    }
 
-      // ── Pedidos ──
-      // Lectura pública (status tracking del cliente).
-      // Creación libre del cliente anónimo en mesa, con validación mínima.
-      // Update/delete solo owner.
-      match /pedidos/{docId} {
-        allow read: if true;
-        allow create: if request.resource.data.keys().hasAll(['estado', 'total', 'items'])
-          && request.resource.data.estado == 'pendiente'
-          && request.resource.data.total is number
-          && request.resource.data.total >= 0;
-        allow update, delete: if isOwner(slug);
-      }
+    // ── Pedidos ──────────────────────────────────────────────────────────────
+    // Lectura pública (status tracking del cliente).
+    // Creación libre con validación estricta de shape (tipo + clienteInfo).
+    // Update/delete solo admin.
+    match /pedidos/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['tipo', 'estado', 'total', 'items', 'clienteInfo'])
+        && request.resource.data.tipo in ['delivery', 'presencial', 'manual']
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0
+        && request.resource.data.clienteInfo.nombre is string
+        && request.resource.data.clienteInfo.nombre.size() > 0;
+      allow update, delete: if isAdmin();
+    }
 
-      // ── Llamadas al mozo ──
-      // Cliente anónimo puede crear, solo owner las gestiona.
-      match /llamadasMozo/{docId} {
-        allow read: if isOwner(slug);
-        allow create: if request.resource.data.keys().hasAll(['mesa', 'atendida'])
-          && request.resource.data.atendida == false;
-        allow update, delete: if isOwner(slug);
-      }
+    // ── Llamadas (pedir la cuenta en presencial) ─────────────────────────────
+    // El cliente solo puede crear con tipo: "cuenta" + pedidoId.
+    // Solo el admin lee y resuelve.
+    match /llamadasMozo/{docId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.tipo == 'cuenta'
+        && request.resource.data.pedidoId is string
+        && request.resource.data.atendida == false;
+      allow update, delete: if isAdmin();
+    }
 
-      // ── Historial ──
-      match /historial/{docId} {
-        allow read, write: if isOwner(slug);
-      }
+    // ── Historial y cierres de caja: solo admin ──────────────────────────────
+    match /historial/{docId}   { allow read, write: if isAdmin(); }
+    match /cierresCaja/{docId} { allow read, write: if isAdmin(); }
 
-      // ── Cierres de caja ──
-      match /cierresCaja/{docId} {
-        allow read, write: if isOwner(slug);
-      }
-
-      // ── Config (incluye contadores y menuDelDia) ──
-      // Lectura pública. Update del documento 'contadores' permitido para clientes
-      // anónimos (necesario para numerar pedidos secuencialmente), solo modificando
-      // los campos ultimaOrden / fecha. Resto solo owner.
-      match /config/{docId} {
-        allow read: if true;
-        allow create: if (
+    // ── Config (comercio, local, menuDelDia, contadores, admin) ──────────────
+    // Lectura pública (la app cliente lee config/comercio, config/local, config/menuDelDia).
+    // El doc 'contadores' es escribible por cliente anónimo (numeración secuencial
+    // dentro de la transacción de pedido), restringiendo qué campos puede tocar.
+    // Resto (comercio, local, menuDelDia, admin) → solo admin.
+    match /config/{docId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        || (
           docId == 'contadores'
-          && request.resource.data.keys().hasOnly(['ultimaOrden', 'fecha'])
-        ) || isOwner(slug);
-        allow update: if (
-          docId == 'contadores'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaOrden', 'fecha'])
+          && request.resource.data.diff(resource.data == null ? {} : resource.data).affectedKeys().hasOnly(['ultimaOrden', 'fecha'])
           && request.resource.data.ultimaOrden is number
           && request.resource.data.ultimaOrden >= 1
-        ) || isOwner(slug);
-        allow delete: if isOwner(slug);
-      }
-
-      // ── Configuración del local ──
-      match /configuracion/{docId} {
-        allow read: if true;
-        allow write: if isOwner(slug);
-      }
-
-      // ── Tokens FCM ──
-      // Solo el owner del comercio puede registrar/ver/borrar sus tokens.
-      // El Cloud Function los lee con privilegios admin (no pasa por estas rules).
-      match /fcmTokens/{tokenId} {
-        allow read, write: if isOwner(slug);
-      }
+        );
+      allow delete: if isAdmin();
     }
   }
 }

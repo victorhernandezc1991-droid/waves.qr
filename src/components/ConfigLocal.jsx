@@ -17,38 +17,38 @@ const DEFAULTS = {
   notificaciones: true,
 };
 
-export default function ConfigLocal({ slug, addToast, alCerrar }) {
+export default function ConfigLocal({ addToast, alCerrar }) {
   const [config,    setConfig]    = useState(DEFAULTS);
   const [perfil,    setPerfil]    = useState({ nombre: "", logoUrl: "", whatsapp: "" });
   const [guardando, setGuardando] = useState(false);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "comercios", slug, "configuracion", "local"), snap => {
+    const unsub = onSnapshot(doc(db, "config", "local"), snap => {
       if (snap.exists()) setConfig({ ...DEFAULTS, ...snap.data() });
     });
     return () => unsub();
-  }, [slug]);
+  }, []);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "comercios", slug), snap => {
+    const unsub = onSnapshot(doc(db, "config", "comercio"), snap => {
       if (snap.exists()) {
         const d = snap.data();
         setPerfil({ nombre: d.nombre || "", logoUrl: d.logoUrl || "", whatsapp: d.whatsapp || "" });
       }
     });
     return () => unsub();
-  }, [slug]);
+  }, []);
 
   const guardarPerfil = async () => {
     if (!perfil.nombre.trim()) return addToast("El nombre no puede estar vacío.", "warning");
     setGuardandoPerfil(true);
     try {
-      await updateDoc(doc(db, "comercios", slug), {
+      await setDoc(doc(db, "config", "comercio"), {
         nombre: perfil.nombre.trim(),
         logoUrl: perfil.logoUrl,
         whatsapp: perfil.whatsapp.trim(),
-      });
+      }, { merge: true });
       addToast("✅ Perfil actualizado.", "success");
     } catch (err) {
       console.error("[ConfigLocal:guardarPerfil]", err);
@@ -59,7 +59,7 @@ export default function ConfigLocal({ slug, addToast, alCerrar }) {
   const guardar = async () => {
     setGuardando(true);
     try {
-      await setDoc(doc(db, "comercios", slug, "configuracion", "local"), { ...config, actualizadoEn: serverTimestamp() });
+      await setDoc(doc(db, "config", "local"), { ...config, actualizadoEn: serverTimestamp() });
       addToast("✅ Configuración guardada.", "success");
     } catch (err) {
       console.error("[ConfigLocal:guardar]", err);
@@ -93,7 +93,11 @@ export default function ConfigLocal({ slug, addToast, alCerrar }) {
             onUpload={url => setPerfil(p => ({ ...p, logoUrl: url }))}
             addToast={addToast}
             initialUrl={perfil.logoUrl}
-            storagePath={`comercios/${slug}`}
+            storagePath="comercio/logo"
+            label="Subir logo del comercio"
+            helpText="Cuadrado 1:1 recomendado · JPG, PNG, WebP · máx 6 MB"
+            icon="🏪"
+            circular
           />
         </div>
         <input className="input-base" placeholder="Nombre del comercio" value={perfil.nombre} onChange={e => setPerfil(p => ({ ...p, nombre: e.target.value }))} maxLength={80} />

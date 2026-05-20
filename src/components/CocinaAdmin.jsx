@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { db, auth } from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
-import { registrarFCMToken, suscribirMensajesForeground } from "../lib/fcm.js";
+import { tituloPedido } from "../lib/pedidos";
 
 // ─── Helper: tiempo transcurrido desde un timestamp ──────────────────────────
 function useTickPerSecond() {
@@ -72,9 +72,7 @@ function ComandaCard({ p, onCambiar, onAnular }) {
     >
       <div className="comanda-header">
         <div className="comanda-header-left">
-          <h2 className="comanda-mesa">
-            {esDelivery ? "🛵 DELIVERY" : `MESA ${p.mesa}`}
-          </h2>
+          <h2 className="comanda-mesa">{tituloPedido(p)}</h2>
           {p.numeroOrden && <span className="comanda-orden">{p.numeroOrden}</span>}
         </div>
         <span className={`comanda-badge comanda-badge-${p.estado}`}>
@@ -100,11 +98,15 @@ function ComandaCard({ p, onCambiar, onAnular }) {
         )}
       </div>
 
-      {esDelivery && p.deliveryInfo && (
+      {/* Info del cliente: para delivery muestra todo (incluye dirección); para presencial solo teléfono */}
+      {(p.clienteInfo || p.deliveryInfo) && (esDelivery || p.tipo === "presencial" || p.tipo === "manual") && (
         <div className="comanda-delivery-info">
-          <p>👤 <strong>{p.deliveryInfo.nombre}</strong></p>
-          <p>📍 {p.deliveryInfo.direccion}</p>
-          <p>📞 {p.deliveryInfo.telefono}</p>
+          {(p.clienteInfo?.telefono || p.deliveryInfo?.telefono) && (
+            <p>📞 {p.clienteInfo?.telefono || p.deliveryInfo?.telefono}</p>
+          )}
+          {esDelivery && (p.clienteInfo?.direccion || p.deliveryInfo?.direccion) && (
+            <p>📍 {p.clienteInfo?.direccion || p.deliveryInfo?.direccion}</p>
+          )}
         </div>
       )}
 
@@ -139,39 +141,30 @@ function ComandaCard({ p, onCambiar, onAnular }) {
 }
 
 // ─── Componente principal ────────────────────────────────────────────────────
-export default function CocinaAdmin({ slug, addToast, alCerrar }) {
+export default function CocinaAdmin({ addToast, alCerrar }) {
   const [pedidos, setPedidos]   = useState([]);
   const [llamadas, setLlamadas] = useState([]);
   const [interactuado, setInteractuado] = useState(false);
-  const [filtro, setFiltro] = useState("activos"); // activos | pendientes | preparando | todos
+  const [filtro, setFiltro] = useState("activos");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("cocinaSound") !== "off");
   const audioRef          = useRef(null);
   const pedidosAnteriores = useRef(0);
 
-  useTickPerSecond(); // re-renderiza cada 30s para actualizar el tiempo transcurrido
+  useTickPerSecond();
 
   useEffect(() => {
     audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
     audioRef.current.preload = "auto";
   }, []);
 
-  // Registrar token FCM cuando el admin entra a Cocina, así el backend
-  // puede mandarle push cuando haya un nuevo pedido aunque la app esté cerrada.
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    registrarFCMToken({ slug, user, addToast });
-    let unsub = () => {};
-    suscribirMensajesForeground(payload => {
-      // Cuando llega un mensaje en foreground reproducimos el sonido
-      if (soundOn) audioRef.current?.play().catch(() => {});
-    }).then(fn => { unsub = fn; });
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "comercios", slug, "pedidos"), snap => {
+    const unsub = onSnapshot(collection(db, "pedidos"), snap => {
       const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const activos = todos.filter(p => p.estado === "pendiente" || p.estado === "preparando");
       if (activos.length > pedidosAnteriores.current && pedidosAnteriores.current !== 0 && interactuado) {
@@ -180,9 +173,7 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
           const nuevos = activos.filter(p => p.estado === "pendiente");
           const ultimo = nuevos[nuevos.length - 1];
           if (ultimo) new Notification("🔔 Nuevo pedido — Waves", {
-            body: ultimo.tipo === "delivery"
-              ? `Delivery — ${ultimo.items?.length || 0} items`
-              : `Mesa ${ultimo.mesa} — ${ultimo.items?.length || 0} items`,
+            body: tituloPedido(ultimo),
             icon: "/logo-waves.png",
           });
         }
@@ -191,7 +182,7 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
       setPedidos(todos);
     });
     return () => unsub();
-  }, [slug, interactuado, soundOn]);
+  }, [interactuado, soundOn]);
 
   useEffect(() => {
     const e = pedidos.filter(p => p.estado === "pendiente").length;
@@ -200,15 +191,15 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
   }, [pedidos]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "comercios", slug, "llamadasMozo"), snap => {
+    const unsub = onSnapshot(collection(db, "llamadasMozo"), snap => {
       setLlamadas(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.atendida));
     });
     return () => unsub();
-  }, [slug]);
+  }, []);
 
   const cambiarEstado = async (id, estado) => {
     try {
-      await updateDoc(doc(db, "comercios", slug, "pedidos", id), {
+      await updateDoc(doc(db, "pedidos", id), {
         estado,
         entregadoHora: estado === "finalizado"
           ? new Date().toLocaleTimeString("es-AR", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -223,7 +214,7 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
   const anularPedido = async (id) => {
     if (!window.confirm("¿Anular este pedido?")) return;
     try {
-      await updateDoc(doc(db, "comercios", slug, "pedidos", id), { estado: "anulado" });
+      await updateDoc(doc(db, "pedidos", id), { estado: "anulado" });
       addToast("Pedido anulado.", "info");
     } catch (err) {
       console.error("[CocinaAdmin]", err);
@@ -232,7 +223,7 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
   };
 
   const atenderLlamada = async (id) => {
-    try { await updateDoc(doc(db, "comercios", slug, "llamadasMozo", id), { atendida: true }); }
+    try { await updateDoc(doc(db, "llamadasMozo", id), { atendida: true }); }
     catch (err) { console.error("[CocinaAdmin]", err); addToast(err?.message || "Error.", "error"); }
   };
 
@@ -244,14 +235,12 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
     });
   };
 
-  // Filtrado y ordenamiento
   const pedidosFiltrados = useMemo(() => {
     let lista;
     if (filtro === "activos")          lista = pedidos.filter(p => p.estado === "pendiente" || p.estado === "preparando");
     else if (filtro === "pendientes")  lista = pedidos.filter(p => p.estado === "pendiente");
     else if (filtro === "preparando")  lista = pedidos.filter(p => p.estado === "preparando");
-    else                                lista = pedidos.filter(p => p.estado !== "anulado"); // todos = sin anulados
-    // Ordenar: pendientes primero, luego preparando, después por fecha asc (más viejo primero)
+    else                                lista = pedidos.filter(p => p.estado !== "anulado");
     const orden = { pendiente: 0, preparando: 1, finalizado: 2 };
     return [...lista].sort((a, b) => {
       const ordA = orden[a.estado] ?? 9;
@@ -259,13 +248,12 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
       if (ordA !== ordB) return ordA - ordB;
       const ta = a.creadoEn?.toMillis?.() || 0;
       const tb = b.creadoEn?.toMillis?.() || 0;
-      return ta - tb; // más viejo primero (más urgente)
+      return ta - tb;
     });
   }, [pedidos, filtro]);
 
   return (
     <div className="cocina-container" onClick={() => setInteractuado(true)}>
-      {/* ── Top bar ── */}
       <div className="cocina-top-bar">
         <button className="btn-cerrar-vista" onClick={e => { e.stopPropagation(); alCerrar(); }}>← Menú</button>
         <h1 className="cocina-title">👨‍🍳 Comandas</h1>
@@ -279,17 +267,20 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
         </button>
       </div>
 
-      {/* ── Stats dashboard ── */}
       <StatsBar pedidos={pedidos} />
 
-      {/* ── Llamadas mozo ── */}
+      {/* ── Pedidos de cuenta (presencial) ── */}
       {llamadas.length > 0 && (
         <div className="llamadas-mozo-panel">
-          <h3>🖐️ Llamadas de Mozo</h3>
+          <h3>💵 Pedidos de cuenta</h3>
           <div className="llamadas-grid">
             {llamadas.map(l => (
               <div key={l.id} className="llamada-item">
-                <span className="llamada-mesa">Mesa {l.mesa}</span>
+                <span className="llamada-mesa">
+                  {l.tipo === "cuenta"
+                    ? `💵 ${l.nombreCliente || "—"}`
+                    : `🖐️ Mesa ${l.mesa}`}
+                </span>
                 <span className="llamada-hora">{l.hora}</span>
                 <button className="btn-atender" onClick={() => atenderLlamada(l.id)}>Atender ✓</button>
               </div>
@@ -298,7 +289,6 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
         </div>
       )}
 
-      {/* ── Filtros ── */}
       <div className="cocina-filtros">
         {[
           { key: "activos",    label: "Activos",    icon: "🔥" },
@@ -316,7 +306,6 @@ export default function CocinaAdmin({ slug, addToast, alCerrar }) {
         ))}
       </div>
 
-      {/* ── Grid de comandas ── */}
       <div className="cocina-grid">
         {pedidosFiltrados.length === 0 && (
           <div className="cocina-empty">

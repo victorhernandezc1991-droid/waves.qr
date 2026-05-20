@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const CLOUDINARY_CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -51,13 +51,25 @@ export function uploadToCloudinary(blob, folder, onProgress) {
   });
 }
 
-export default function ImageUpload({ onUpload, addToast, initialUrl = "", storagePath = "productos" }) {
+export default function ImageUpload({
+  onUpload,
+  addToast,
+  initialUrl    = "",
+  storagePath   = "productos",
+  label         = "Subir imagen del producto",
+  helpText      = "JPG, PNG, WebP · máx 6 MB · se comprime a 800×800px",
+  icon          = "📷",
+  circular      = false,    // si true, el preview es circular (logo del comercio)
+}) {
   const [preview,   setPreview]   = useState(initialUrl || null);
   const [uploading, setUploading] = useState(false);
   const [progress,  setProgress]  = useState(0);
   const [success,   setSuccess]   = useState(false);
   const [filename,  setFilename]  = useState("");
   const fileRef = useRef(null);
+
+  // Sincroniza preview si initialUrl cambia desde afuera (ej. snapshot Firestore)
+  useEffect(() => { if (!preview && initialUrl) setPreview(initialUrl); }, [initialUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     setPreview(null); setProgress(0); setSuccess(false); setFilename("");
@@ -93,14 +105,14 @@ export default function ImageUpload({ onUpload, addToast, initialUrl = "", stora
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} style={{ display: "none" }} />
       {!preview ? (
         <div className="img-uploader-dropzone" onClick={() => fileRef.current?.click()}>
-          <span className="img-uploader-dropzone-icon">📷</span>
-          <span className="img-uploader-dropzone-label">Subir imagen del producto</span>
-          <small className="img-uploader-dropzone-hint">JPG, PNG, WebP · máx 6 MB · se comprime a 800×800px</small>
+          <span className="img-uploader-dropzone-icon">{icon}</span>
+          <span className="img-uploader-dropzone-label">{label}</span>
+          <small className="img-uploader-dropzone-hint">{helpText}</small>
           <small className="img-uploader-dropzone-hint" style={{ color: "var(--accent-yellow)" }}>☁️ Vía Cloudinary (gratis)</small>
         </div>
       ) : (
         <div className="img-uploader-preview-area">
-          <div className={`img-uploader-preview-wrap ${success ? "upload-success" : ""}`}>
+          <div className={`img-uploader-preview-wrap ${success ? "upload-success" : ""} ${circular ? "img-uploader-preview-circular" : ""}`}>
             <img src={preview} alt="Preview" className="img-uploader-preview" />
             {uploading && (
               <div className="img-uploader-overlay">

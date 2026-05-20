@@ -2,29 +2,29 @@ import { useEffect, useState } from "react";
 import { db } from "../firebaseConfig";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
 
-export default function StockManager({ slug, addToast, alCerrar }) {
+export default function StockManager({ addToast, alCerrar }) {
   const [productos, setProductos] = useState([]);
   const [filtro, setFiltro]       = useState("todos");
   const [busqueda, setBusqueda]   = useState("");
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "comercios", slug, "productos"), snap => {
+    const unsub = onSnapshot(collection(db, "productos"), snap => {
       setProductos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, [slug]);
+  }, []);
 
   const updateStock = async (id, val) => {
     const n = parseInt(val, 10);
     if (isNaN(n) || n < 0) return;
-    try { await updateDoc(doc(db, "comercios", slug, "productos", id), { stock: n }); }
+    try { await updateDoc(doc(db, "productos", id), { stock: n }); }
     catch (err) { console.error("[StockManager]", err); addToast(err?.message || "Error al actualizar stock.", "error"); }
   };
 
   const updateStockMinimo = async (id, val) => {
     const n = parseInt(val, 10);
     if (isNaN(n) || n < 0) return;
-    try { await updateDoc(doc(db, "comercios", slug, "productos", id), { stockMinimo: n }); }
+    try { await updateDoc(doc(db, "productos", id), { stockMinimo: n }); }
     catch (err) { console.error("[StockManager]", err); addToast(err?.message || "Error al actualizar.", "error"); }
   };
 
